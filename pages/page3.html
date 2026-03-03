@@ -1,0 +1,149 @@
+    <div class="page-header">
+      <div class="page-header-eyebrow">Causal Analysis · NHANES + GBD 1999–2021</div>
+      <h1>Why Progress Stopped<br><em>Around 2009</em></h1>
+      <p>
+        Three converging structural forces erased the gains made during the 1990s and early 2000s. None is a dramatic singular event — together they created a slow-moving, population-wide trap that standard interventions like iron fortification couldn't overcome.
+      </p>
+    </div>
+
+    <!-- Three driver cards -->
+    <div class="driver-grid">
+      <div class="driver d1">
+        <div class="driver-stat">−9.5%</div>
+        <h3>🥩 Dietary Iron Intake Collapsed</h3>
+        <p>
+          <span class="cite" data-cid="iron_intake_drop">Female adult dietary iron intake fell ~9.5% between 1999–2018. There was a 15.3% reduction in beef (the richest heme-iron source) and a 21.5% increase in chicken. Of US food items re-analyzed in 2015, 62.4% had lower iron concentrations than in 1999.</span>
+        </p>
+      </div>
+      <div class="driver d2">
+        <div class="driver-stat">Hepcidin ↑</div>
+        <h3>⚖️ Obesity Blocks Absorption</h3>
+        <p>
+          <span class="cite" data-cid="hepcidin_obesity">Hepcidin levels are elevated in obese individuals due to subclinical inflammation, reducing iron absorption and blunting the effects of iron fortification — so low iron status in overweight individuals results from combined nutritional and functional iron deficiency.</span>
+        </p>
+      </div>
+      <div class="driver d3">
+        <div class="driver-stat">57% kcal</div>
+        <h3>🍟 Ultra-Processed Food Rise</h3>
+        <p>
+          <span class="cite" data-cid="upf_trend">Ultra-processed foods rose from 53.5% to 57% of US adult caloric intake between 2001–2018, while minimally processed foods fell from 32.7% to 27.4% — a consistent trend across all demographic subgroups except Hispanics.</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Hepcidin mechanism box -->
+    <div class="mechanism">
+      <h2>The Hepcidin Loop — Why Obesity Blocks Iron Even When You Eat Enough</h2>
+      <div class="mech-grid">
+        <div class="mech-item">
+          <div class="mech-icon">🔥</div>
+          <div class="mech-text">
+            <h4>Fat tissue secretes IL-6</h4>
+            <p>Visceral fat cells produce interleukin-6 and pro-inflammatory cytokines, creating chronic low-grade inflammation even in otherwise "healthy" obese individuals.</p>
+          </div>
+        </div>
+        <div class="mech-item">
+          <div class="mech-icon">🛡️</div>
+          <div class="mech-text">
+            <h4>IL-6 triggers hepcidin synthesis</h4>
+            <p>The liver responds to IL-6 by producing hepcidin. Normally this prevents iron overload — but in obesity, hepcidin stays chronically elevated even when the body is iron-deficient.</p>
+          </div>
+        </div>
+        <div class="mech-item">
+          <div class="mech-icon">🔒</div>
+          <div class="mech-text">
+            <h4>Hepcidin locks ferroportin</h4>
+            <p><span class="cite" data-cid="ferroportin">Hepcidin binds to ferroportin — the only known iron export channel on gut cells, macrophages, and hepatocytes — causing its degradation. Iron gets trapped inside cells and can't enter circulation.</span></p>
+          </div>
+        </div>
+        <div class="mech-item">
+          <div class="mech-icon">🩸</div>
+          <div class="mech-text">
+            <h4>Result: functional iron deficiency</h4>
+            <p>Blood tests may show normal ferritin (stored iron looks fine), but serum iron is low. <span class="cite" data-cid="ascorbic_half">In overweight and obese women, the enhancement of iron absorption by ascorbic acid is only half that seen in normal-weight women.</span> Standard supplements often fail. Weight loss reverses this.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="prose">
+      The ~2009 inflection point coincides with three forces peaking simultaneously:
+      <strong>US adult female obesity crossed 36%</strong>, beef consumption was in sustained secular decline,
+      and the 2008 financial crisis reduced food access for lower-income households.
+      <span class="cite" data-cid="why_women_harder">Men's iron requirement is 8 mg/day; women of reproductive age need 18 mg/day — 2.25× more — to offset menstrual losses. A 9.5% drop in dietary iron intake is barely noticeable for men; for women already near the threshold, it tips the balance into deficiency.</span>
+    </p>
+
+    <div class="grid-2" style="margin-bottom:18px;">
+
+      <!-- Main trend annotated -->
+      <div class="card full">
+        <div class="card-title">US Women's Anemia Prevalence — Annotated Trend</div>
+        <div class="card-sub">% of women 15–49 with anemia · NHANES estimates · stagnation zone highlighted</div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="p3-main"></canvas>
+        </div>
+        <div class="card-note">
+          Yellow band marks the stagnation era. <span class="cite" data-cid="screening_gap">The US Preventive Services Task Force does not recommend routine iron deficiency screening for non-pregnant women, and CDC guidelines for anemia screening date from 1998 — not reflecting current evidence.</span>
+        </div>
+      </div>
+
+      <!-- Beef vs poultry -->
+      <div class="card">
+        <div class="card-title">Red Meat vs. Poultry Consumption (1999–2016)</div>
+        <div class="card-sub">g/week among US adults · NHANES · heme-iron substitution</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p3-meat"></canvas>
+        </div>
+        <div class="card-note">
+          Heme iron (red meat) absorbs at 15–35% efficiency. Non-heme iron (chicken, plants) absorbs at 2–20%. Replacing beef with chicken at the same portion size delivers far less bioavailable iron.
+        </div>
+      </div>
+
+      <!-- Obesity trend -->
+      <div class="card">
+        <div class="card-title">US Women's Obesity Rate (1999–2020)</div>
+        <div class="card-sub">% with BMI ≥ 30 · CDC/NHANES · drives hepcidin elevation</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p3-obesity"></canvas>
+        </div>
+        <div class="card-note">
+          <span class="cite" data-cid="obesity_ascorbic">In overweight and obese women, dietary iron absorption is reduced and iron fortification is less effective than in normal-weight women</span> — meaning population-wide obesity trends directly undermine the impact of food fortification programs.
+        </div>
+      </div>
+
+      <!-- UPF trend -->
+      <div class="card">
+        <div class="card-title">Ultra-Processed Food Share of US Calories (2001–2018)</div>
+        <div class="card-sub">% of daily energy intake · NOVA classification · NHANES adults</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p3-upf"></canvas>
+        </div>
+        <div class="card-note">
+          UPFs are often fortified with non-heme iron forms of low bioavailability, and frequently contain phytates, calcium, and polyphenols that further inhibit absorption. Fortification on the label ≠ iron that reaches the bloodstream.
+        </div>
+      </div>
+
+      <!-- Iron requirements gap -->
+      <div class="card full">
+        <div class="card-title">Why the Same Trends Hit Women Far Harder Than Men</div>
+        <div class="card-sub">Daily iron requirements vs. actual intakes — the margin for error</div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="p3-req"></canvas>
+        </div>
+        <div class="card-note">
+          Men have always been eating well above their 8 mg/day requirement — a 9.5% intake decline still leaves a comfortable buffer. Women's 18 mg/day requirement means they were already running close to the margin; the same decline pushed millions into deficiency. <span class="cite" data-cid="womens_threshold">Dietary iron recommendations are 18 mg/day for women of reproductive age compared to 8 mg/day for men, rising to 27 mg/day during pregnancy.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <details class="sources-footer">
+      <summary>Sources for this page (5)</summary>
+      <div class="sources-list">
+        <div class="source-item">Sun H & Weaver CM. (2021). Decreased Iron Intake Parallels Rising Iron Deficiency Anemia and Related Mortality Rates in the US Population. <em>Journal of Nutrition</em>, 151(7), 1947–1955. <a href="https://www.sciencedirect.com/science/article/pii/S0022316622002413" target="_blank">↗</a></div>
+        <div class="source-item">Juul F et al. (2021). Ultra-processed food consumption among US adults from 2001 to 2018. <em>American Journal of Clinical Nutrition</em>. <a href="https://www.sciencedirect.com/science/article/pii/S0002916522001253" target="_blank">↗</a></div>
+        <div class="source-item">McClung JP & Karl JP. (2009). Iron deficiency and obesity: the contribution of inflammation and diminished iron absorption. <em>Nutrition Reviews</em>, 67(2), 100–104. <a href="https://pubmed.ncbi.nlm.nih.gov/19178651/" target="_blank">↗</a></div>
+        <div class="source-item">Cepeda-Lopez AC et al. (2015). In overweight and obese women, dietary iron absorption is reduced. <em>American Journal of Clinical Nutrition</em>, 102(6), 1389–1397.</div>
+        <div class="source-item">Williams AM et al. (2022). Iron Deficiency in the United States: Limitations in Guidelines, Data, and Monitoring of Disparities. <em>American Journal of Public Health</em>, 112(S8). <a href="https://ajph.aphapublications.org/doi/full/10.2105/AJPH.2022.306998" target="_blank">↗</a></div>
+      </div>
+    </details>

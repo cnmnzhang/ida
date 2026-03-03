@@ -1,0 +1,126 @@
+    <div class="page-header">
+      <div class="page-header-eyebrow">United States · GBD 2019 + NHANES 2021–2023</div>
+      <h1>IDA Burden in the<br><em>United States</em></h1>
+      <p>
+        <span class="cite" data-cid="us_dalyrise">Anemia-related DALYs in the US increased 26% from 332,449 in 1990 to 418,855 in 2019</span> —
+        a troubling rise in a wealthy nation with food fortification programs.
+        <span class="cite" data-cid="us_female75">Female individuals account for nearly three-quarters of all US anemia DALYs, with dietary iron deficiency contributing more than half of total burden.</span>
+      </p>
+    </div>
+
+    <!-- DALY explainer box -->
+    <div class="infobox infobox-daly" style="margin-bottom: 24px;">
+      <h2 style="color:var(--accent-purple)">📊 What is a DALY?</h2>
+      <p>
+        A <strong>Disability-Adjusted Life Year (DALY)</strong> = 1 year of healthy life lost, either to premature death or to living with illness/disability.
+        For IDA in the US, DALYs are almost entirely <strong>YLDs</strong> (years lived with disability) since anemia rarely causes direct death here.
+        418,855 DALYs in 2019 means roughly 419,000 full years of healthy life were erased that year — lost to fatigue, cognitive impairment, and reduced work capacity. Predominantly in women.
+      </p>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-pink)">418,855</div>
+        <div class="kpi-lbl">Total US anemia DALYs (2019)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-orange)">+26%</div>
+        <div class="kpi-lbl">Increase in DALYs, 1990–2019</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-pink)">~75%</div>
+        <div class="kpi-lbl">Of US DALYs borne by women</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-blue)">54%</div>
+        <div class="kpi-lbl">DALYs from dietary iron deficiency</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-green)">9.3%</div>
+        <div class="kpi-lbl">Overall US anemia prevalence (2021–23)</div>
+      </div>
+    </div>
+
+    <p class="prose">
+      <span class="cite" data-cid="nhanes_sex">US anemia prevalence is 13.0% in females versus 5.5% in males overall (NHANES 2021–2023).</span>
+      <span class="cite" data-cid="nhanes_teen">Female adolescents ages 12–19 have the highest prevalence at 17.4%</span> — reflecting the iron drain of menstruation onset with diets that rarely compensate.
+      <span class="cite" data-cid="black_women">Black non-Hispanic women face an anemia prevalence of 31.4% — more than double the rate of non-Hispanic White women — the highest burden of any demographic group in the US.</span>
+    </p>
+
+    <div class="grid-2" style="margin-bottom:18px;">
+
+      <!-- Trend line by sex -->
+      <div class="card full">
+        <div class="card-title">US Anemia Prevalence by Sex — NHANES (1999–2023)</div>
+        <div class="card-sub">% of US population with anemia · sex-stratified estimates</div>
+        <div class="chart-wrap" style="height:240px">
+          <canvas id="p2-trend"></canvas>
+        </div>
+        <div class="card-note">
+          Female rates have hovered at 12–13% with no meaningful decline since the early 2000s.
+          <span class="cite" data-cid="ida_increase">IDA prevalence in pregnant US women trended from 6.63% (2015–16) to 9.9% (2021–23)</span>, with COVID-19 likely intensifying vulnerabilities around healthcare access and income stability.
+        </div>
+      </div>
+
+      <!-- DALYs by sex -->
+      <div class="card">
+        <div class="card-title">US Anemia DALYs by Sex (1990–2019)</div>
+        <div class="card-sub">Thousands of healthy life years lost annually</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p2-dalys"></canvas>
+        </div>
+        <div class="card-note">
+          <span class="cite" data-cid="daly_3x">In 2019, female individuals accounted for 166,741 DALYs versus 61,499 in males — nearly 3× more.</span>
+          Among ages 10–54, women had a severe anemia DALY rate approximately 10× higher than men for dietary iron deficiency specifically.
+        </div>
+      </div>
+
+      <!-- DALYs by cause donut -->
+      <div class="card">
+        <div class="card-title">US Anemia DALYs by Cause (2019)</div>
+        <div class="card-sub">Proportional breakdown — what's driving health loss</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p2-cause"></canvas>
+        </div>
+        <div class="card-note">
+          Gynecological and obstetric causes are exclusively female contributors. Kidney disease and other chronic conditions grow with the aging population.
+        </div>
+      </div>
+
+      <!-- Age/sex bar -->
+      <div class="card">
+        <div class="card-title">Anemia Prevalence by Age Group & Sex</div>
+        <div class="card-sub">% affected · NHANES 2021–2023</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p2-age"></canvas>
+        </div>
+        <div class="card-note">
+          The sex gap peaks at age 12–19 (onset of menstruation) and partially closes at 60+ when males' rising chronic disease burden begins to narrow the divide.
+        </div>
+      </div>
+
+      <!-- Race/ethnicity bar -->
+      <div class="card full">
+        <div class="card-title">Anemia Prevalence by Race/Ethnicity & Sex</div>
+        <div class="card-sub">% with anemia · NHANES 2021–2023 · stark racial disparities persist</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p2-race"></canvas>
+        </div>
+        <div class="card-note">
+          <span class="cite" data-cid="state_burden">At the state level, Mississippi, the District of Columbia, and Alabama have the highest anemia-related DALY burden in the US</span> — reflecting compounding geographic, racial, and socioeconomic inequities.
+          <span class="cite" data-cid="black_women_detail">Black non-Hispanic females face 31.4% prevalence versus 10.8% in Black non-Hispanic males</span>, with disparate rates of hemoglobinopathies (sickle cell), dietary access, and screening gaps all contributing.
+        </div>
+      </div>
+
+    </div>
+
+    <details class="sources-footer">
+      <summary>Sources for this page (4)</summary>
+      <div class="sources-list">
+        <div class="source-item">Shwarz M. (2025). Burden of anemia in the United States from 1990 to 2019: a systematic analysis of the Global Burden of Disease Study 2019. <em>Frontiers in Public Health</em>. <a href="https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2025.1653222/full" target="_blank">↗</a></div>
+        <div class="source-item">Williams et al. (December 2024). Anemia in the United States. <em>NCHS Data Brief No. 519</em>. CDC/NCHS. <a href="https://www.cdc.gov/nchs/products/databriefs/db519.htm" target="_blank">↗</a></div>
+        <div class="source-item">ASH (2025). Iron deficiency anemia and health equity: Persistent gaps among reproductive-age women in the United States. <em>Blood</em>, 146(Supplement 1). <a href="https://ashpublications.org/blood/article/146/Supplement%201/4478/556301" target="_blank">↗</a></div>
+        <div class="source-item">GBD 2021 Anaemia Collaborators (2023). <em>Lancet Haematology</em>, 10(9), e713–e734.</div>
+      </div>
+    </details>

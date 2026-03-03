@@ -1,0 +1,72 @@
+    <div class="page-header">
+      <div class="page-header-eyebrow">Global Epidemiology · 1990–2021</div>
+      <h1>Iron Deficiency Anemia<br><em>Worldwide Trends</em></h1>
+      <p>
+        <span class="cite" data-cid="gbd2021_global">Global anemia prevalence fell from 28.2% in 1990 to 24.3% in 2021 — 1.92 billion cases — with iron deficiency remaining the dominant cause at 66.2% of all anemia burden.</span>
+        Progress has been deeply uneven: adult males improved dramatically while women of reproductive age and children under five saw near-stagnation.
+      </p>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-pink)">1.92B</div>
+        <div class="kpi-lbl">People with anemia globally (2021)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-amber)">66.2%</div>
+        <div class="kpi-lbl">Anemia cases caused by iron deficiency</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-green)">−13.8%</div>
+        <div class="kpi-lbl">Decline in global prevalence 1990–2021</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-orange)">47.4%</div>
+        <div class="kpi-lbl">Prevalence, W. sub-Saharan Africa (2021)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-blue)">6.8%</div>
+        <div class="kpi-lbl">Prevalence, North America (2021)</div>
+      </div>
+    </div>
+
+    <!-- Prose with citations -->
+    <p class="prose">
+      <span class="cite" data-cid="gbd2021_sex">In 2021, 31.2% of women had anemia globally versus 17.5% of men.</span>
+      The divergence is most extreme during reproductive years:
+      <span class="cite" data-cid="gbd2021_repro">among adults aged 15–49, anemia prevalence in women reached 33.7% versus just 11.3% in men.</span>
+      <span class="cite" data-cid="gbd2021_geography">The regions with the lowest anemia burden are Australasia (5.7%), Western Europe (6.0%), and North America (6.8%), while Western sub-Saharan Africa (47.4%), South Asia (35.7%), and Central sub-Saharan Africa (35.7%) face the greatest burden.</span>
+    </p>
+
+    <!-- Main chart -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-title">Global Anemia Prevalence by Demographic Group (1990–2021)</div>
+      <div class="card-sub">% of population affected · GBD 2021 anchor points, interpolated between cycles</div>
+      <div class="chart-wrap" style="height:380px">
+        <canvas id="p1-main"></canvas>
+      </div>
+      <div class="card-note">
+        <span class="cite" data-cid="gbd2021_stagnation">The decline in age-standardized prevalence among women of reproductive age stagnated after 2009, with a slight increase through 2021, primarily driven by rising mild anemia.</span>
+        Adult males show the steepest decline — their lower iron requirement (8 mg/day vs. 18 mg/day for women) means the same dietary and structural improvements exceed their needs more easily.
+      </div>
+    </div>
+
+    <!-- Regional bar -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-title">Anemia Prevalence by World Region (2021)</div>
+      <div class="card-sub">% with anemia · all ages · GBD 2021</div>
+      <div class="chart-wrap" style="height:280px">
+        <canvas id="p1-regional"></canvas>
+      </div>
+    </div>
+
+    <!-- Sources -->
+    <details class="sources-footer">
+      <summary>Sources for this page (3)</summary>
+      <div class="sources-list">
+        <div class="source-item">Gardner et al. (2023). Prevalence, years lived with disability, and trends in anaemia burden by severity and cause, 1990–2021. <em>Lancet Haematology</em>, 10(9), e713–e734. <a href="https://www.thelancet.com/journals/lanhae/article/PIIS2352-3026(23)00160-6/fulltext" target="_blank">↗</a></div>
+        <div class="source-item">IHME (2023). The Lancet: New study reveals global anemia cases remain persistently high among women and children. Institute for Health Metrics and Evaluation. <a href="https://www.healthdata.org/news-events/newsroom/news-releases/lancet-new-study-reveals-global-anemia-cases-remain-persistently" target="_blank">↗</a></div>
+        <div class="source-item">Frontiers in Nutrition (2025). Global, regional, and national anemia burden among women of reproductive age (15–49 years) from 1990 to 2021. <a href="https://www.frontiersin.org/journals/nutrition/articles/10.3389/fnut.2025.1588496/full" target="_blank">↗</a></div>
+      </div>
+    </details>

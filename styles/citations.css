@@ -1,0 +1,70 @@
+/* ============================================================
+   CITATION STYLES
+
+   How the citation system works:
+     1. Wrap any claim with <span class="cite" data-cid="KEY">text</span>
+     2. KEY must match an entry in the CITATIONS object in citations.js
+     3. On hover: tooltip appears with full citation info
+     4. On click: opens source URL in new tab
+   ============================================================ */
+.cite {
+  color: var(--text-primary);
+  border-bottom: 1px dashed var(--accent-amber);
+  cursor: help;
+  transition: border-color 0.15s, color 0.15s;
+  position: relative;
+}
+
+.cite:hover {
+  color: var(--accent-amber);
+  border-bottom-style: solid;
+}
+
+/* Superscript citation number */
+.cite::after {
+  content: attr(data-cnum);
+  font-size: 0.58em;
+  font-family: var(--font-mono);
+  vertical-align: super;
+  color: var(--accent-amber);
+  opacity: 0.7;
+  margin-left: 1px;
+}
+
+/* Floating tooltip */
+#cite-tooltip {
+  position: fixed;
+  z-index: 9999;
+  max-width: 320px;
+  background: #0a1220;
+  border: 1px solid var(--accent-amber);
+  border-radius: 10px;
+  padding: 12px 14px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+#cite-tooltip.visible { opacity: 1; }
+
+.cite-tooltip-claim {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.cite-tooltip-source {
+  font-size: 0.7rem;
+  color: var(--accent-amber);
+  font-family: var(--font-mono);
+  line-height: 1.4;
+}
+
+.cite-tooltip-hint {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}

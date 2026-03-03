@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Iron Deficiency Anemia — Research Explorer</title>
+
+  <!-- External: Chart.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <!-- Google Fonts: DM Serif Display (headings) + DM Mono (data) + Karla (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/citations.css">
+</head>
+<body>
+
+  <!-- NAVIGATION -->
+  <nav>
+    <div class="nav-brand">
+      <div class="nav-brand-icon">🩸</div>
+      <div>
+        <div class="nav-brand-title">IDA Research Explorer</div>
+        <div class="nav-brand-sub">Iron Deficiency Anemia · Evidence Review</div>
+      </div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showPage(1)">
+        <span class="nav-tab-num">1</span>Global Trends
+      </button>
+      <button class="nav-tab" onclick="showPage(2)">
+        <span class="nav-tab-num">2</span>US Burden
+      </button>
+      <button class="nav-tab" onclick="showPage(3)">
+        <span class="nav-tab-num">3</span>Post-2009 Stagnation
+      </button>
+    </div>
+  </nav>
+
+  <!-- CITATION TOOLTIP — singleton element, repositioned by JS -->
+  <div id="cite-tooltip">
+    <div class="cite-tooltip-claim" id="cite-tooltip-claim"></div>
+    <div class="cite-tooltip-source" id="cite-tooltip-source"></div>
+    <div class="cite-tooltip-hint">Click to open source ↗</div>
+  </div>
+
+  <!-- PAGE CONTAINERS — populated from /pages/*.html -->
+  <div id="page-1" class="page active"></div>
+  <div id="page-2" class="page"></div>
+  <div id="page-3" class="page"></div>
+
+  <!-- Nav + Citations (no DOM dependencies) -->
+  <script src="scripts/nav.js"></script>
+  <script src="scripts/citations.js"></script>
+
+  <!-- Load page HTML, then initialize charts + citations -->
+  <script>
+    Promise.all([
+      fetch('pages/page1.html').then(r => r.text()),
+      fetch('pages/page2.html').then(r => r.text()),
+      fetch('pages/page3.html').then(r => r.text())
+    ]).then(([p1, p2, p3]) => {
+      document.getElementById('page-1').innerHTML = p1;
+      document.getElementById('page-2').innerHTML = p2;
+      document.getElementById('page-3').innerHTML = p3;
+
+      // Load chart scripts sequentially (they share globals and need DOM ready)
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.onload = resolve;
+          s.onerror = reject;
+          document.body.appendChild(s);
+        });
+      }
+
+      return loadScript('scripts/charts-p1.js')
+        .then(() => loadScript('scripts/charts-p2.js'))
+        .then(() => loadScript('scripts/charts-p3.js'));
+    }).then(() => {
+      initCitations();
+    });
+  </script>
+</body>
+</html>
