@@ -20,7 +20,7 @@
   <!-- NAVIGATION -->
   <nav>
     <div class="nav-brand">
-      <div class="nav-brand-icon">🩸</div>
+      <div class="nav-brand-icon">Fe</div>
       <div>
         <div class="nav-brand-title">IDA Research Explorer</div>
         <div class="nav-brand-sub">Iron Deficiency Anemia · Evidence Review</div>
@@ -77,10 +77,13 @@
         });
       }
 
+      // Load all chart scripts (they define init functions, not auto-execute)
       return loadScript('scripts/charts-p1.js')
         .then(() => loadScript('scripts/charts-p2.js'))
         .then(() => loadScript('scripts/charts-p3.js'));
     }).then(() => {
+      // Init only page 1 charts on load; pages 2 & 3 init on first visit
+      initPage1Charts();
       initCitations();
     });
   </script>
