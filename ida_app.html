@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  IDA Research Web App — Iron Deficiency Anemia Explorer
+  ============================================================
+  STRUCTURE FOR FUTURE REFACTOR:
+  
+  This is a single-file app intentionally structured for easy
+  splitting by a Claude CLI agent. Each major section is clearly
+  delimited with comments indicating its destination file.
+
+  Suggested refactor targets:
+    - /styles/main.css         ← everything inside <style>
+    - /styles/citations.css    ← .cite, .cite-tooltip styles
+    - /scripts/nav.js          ← showPage(), nav tab logic
+    - /scripts/citations.js    ← CITATIONS data + tooltip system
+    - /scripts/charts-p1.js    ← Page 1 chart (globalTrendsChart)
+    - /scripts/charts-p2.js    ← Page 2 charts (5x US burden charts)
+    - /scripts/charts-p3.js    ← Page 3 charts (5x stagnation charts)
+    - /pages/page1.html        ← innerHTML of #page-1
+    - /pages/page2.html        ← innerHTML of #page-2
+    - /pages/page3.html        ← innerHTML of #page-3
+    - index.html               ← shell with <link>/<script> tags
+
+  DATA SOURCES (for future agents):
+    - GBD 2021: Gardner et al., Lancet Haematology 2023
+    - GBD 2019 US: Shwarz et al., Frontiers Public Health 2025
+    - NHANES Data Brief 519: CDC/NCHS December 2024
+    - Dietary iron decline: Sun & Weaver, J Nutr 2021
+    - UPF trends: Juul et al., Am J Clin Nutr 2021
+    - Hepcidin/obesity: McClung & Karl, Nutr Rev 2009
+    - IDA in women: ASH Blood 2025
+  ============================================================
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Iron Deficiency Anemia — Research Explorer</title>
+
+  <!-- External: Chart.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <!-- Google Fonts: DM Serif Display (headings) + DM Mono (data) + Karla (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- ============================================================
+       STYLES — move to /styles/main.css on refactor
+       Citations styles are grouped at the bottom of this block
+       and can be split to /styles/citations.css
+       ============================================================ -->
+  <style>
+    /* === DESIGN TOKENS =========================================
+       Future agents: update these variables to retheme the app.
+       Color system uses a deep navy base with amber accent.
+    ============================================================ */
+    :root {
+      --bg:           #080c14;
+      --bg-card:      #0e1422;
+      --bg-card2:     #111827;
+      --border:       #1e2d45;
+      --border-light: #253550;
+      --text-primary: #e8edf5;
+      --text-body:    #8fa3bf;
+      --text-muted:   #4a6080;
+      --accent-amber: #f59e0b;
+      --accent-pink:  #f472b6;
+      --accent-blue:  #38bdf8;
+      --accent-green: #34d399;
+      --accent-purple:#a78bfa;
+      --accent-orange:#fb923c;
+      --accent-red:   #f87171;
+      --nav-height:   58px;
+      --font-display: 'DM Serif Display', Georgia, serif;
+      --font-body:    'Karla', sans-serif;
+      --font-mono:    'DM Mono', monospace;
+    }
+
+    /* === RESET & BASE ========================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* === NAVIGATION ============================================
+       JS: see showPage() in nav.js section
+    ============================================================ */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--nav-height);
+      background: rgba(8, 12, 20, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      z-index: 1000;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-brand-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent-amber), var(--accent-pink));
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .nav-brand-title {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      color: var(--text-primary);
+      letter-spacing: 0.01em;
+    }
+
+    .nav-brand-sub {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: -2px;
+    }
+
+    /* Tab buttons */
+    .nav-tabs {
+      display: flex;
+      gap: 4px;
+      background: rgba(14, 20, 34, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    .nav-tab {
+      padding: 6px 16px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .nav-tab:hover { color: var(--text-primary); background: var(--border); }
+
+    .nav-tab.active {
+      background: var(--accent-amber);
+      color: #080c14;
+    }
+
+    /* Tab number badge */
+    .nav-tab-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      font-size: 0.6rem;
+      font-family: var(--font-mono);
+      background: rgba(255,255,255,0.12);
+      margin-right: 5px;
+    }
+    .nav-tab.active .nav-tab-num { background: rgba(0,0,0,0.2); }
+
+    /* === PAGE LAYOUT =========================================== */
+    .page {
+      display: none;
+      padding: calc(var(--nav-height) + 36px) 24px 60px;
+      max-width: 1040px;
+      margin: 0 auto;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .page.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* === PAGE HEADER =========================================== */
+    .page-header {
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .page-header-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent-amber);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .page-header h1 {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      color: var(--text-primary);
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+
+    .page-header p {
+      font-size: 0.88rem;
+      color: var(--text-body);
+      max-width: 680px;
+      line-height: 1.7;
+    }
+
+    /* === CARDS ================================================= */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 22px 18px;
+    }
+
+    .card-title {
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .card-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-bottom: 16px;
+    }
+
+    .chart-wrap { position: relative; }
+
+    .card-note {
+      font-size: 0.73rem;
+      color: var(--text-muted);
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      line-height: 1.6;
+    }
+
+    /* === GRID LAYOUTS ========================================== */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .grid-2 .full { grid-column: 1 / -1; }
+
+    @media (max-width: 720px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .grid-2 .full { grid-column: 1; }
+    }
+
+    /* === KPI STRIP ============================================= */
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .kpi {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .kpi-val {
+      font-family: var(--font-mono);
+      font-size: 1.55rem;
+      font-weight: 500;
+      margin-bottom: 4px;
+      line-height: 1;
+    }
+
+    .kpi-lbl {
+      font-size: 0.71rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* === INLINE PROSE ========================================== */
+    .prose {
+      font-size: 0.87rem;
+      color: var(--text-body);
+      line-height: 1.8;
+      margin-bottom: 28px;
+      max-width: 740px;
+    }
+
+    .prose strong { color: var(--text-primary); font-weight: 600; }
+
+    /* === INFO BOXES ============================================ */
+    .infobox {
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-bottom: 24px;
+      border: 1px solid;
+    }
+
+    .infobox-daly {
+      background: #0a0f1e;
+      border-color: #2d3a6e;
+      border-left: 4px solid var(--accent-purple);
+    }
+
+    .infobox h2 {
+      font-size: 0.88rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .infobox p {
+      font-size: 0.8rem;
+      color: var(--text-body);
+      line-height: 1.7;
+    }
+
+    /* === DRIVER CARDS (page 3) ================================= */
+    .driver-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 680px) { .driver-grid { grid-template-columns: 1fr; } }
+
+    .driver {
+      border-radius: 12px;
+      padding: 18px 16px;
+      border: 1px solid;
+    }
+
+    .driver-stat {
+      font-family: var(--font-mono);
+      font-size: 1.4rem;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .driver h3 { font-size: 0.82rem; font-weight: 700; margin-bottom: 8px; }
+    .driver p  { font-size: 0.77rem; color: var(--text-body); line-height: 1.6; }
+
+    .d1 { background:#12081e; border-color:#5b21b6; }
+    .d1 .driver-stat, .d1 h3 { color: var(--accent-purple); }
+    .d2 { background:#081018; border-color:#0c4a6e; }
+    .d2 .driver-stat, .d2 h3 { color: var(--accent-blue); }
+    .d3 { background:#130c04; border-color:#92400e; }
+    .d3 .driver-stat, .d3 h3 { color: var(--accent-orange); }
+
+    /* === MECHANISM BOX (page 3) ================================ */
+    .mechanism {
+      background: #080f1c;
+      border: 1px solid #1a2d4a;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+    }
+
+    .mechanism h2 {
+      font-size: 0.9rem;
+      color: var(--accent-blue);
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .mech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .mech-item { display: flex; gap: 12px; align-items: flex-start; }
+    .mech-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 2px; }
+    .mech-text h4 { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+    .mech-text p  { font-size: 0.75rem; color: var(--text-muted); line-height: 1.55; }
+
+    /* === SOURCES FOOTER ======================================== */
+    .sources-footer {
+      margin-top: 32px;
+      padding: 16px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .sources-footer summary {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+
+    .sources-footer summary::-webkit-details-marker { display: none; }
+
+    .sources-footer summary::before {
+      content: '▶ ';
+      font-size: 0.6rem;
+      transition: transform 0.2s;
+    }
+
+    .sources-footer[open] summary::before { content: '▼ '; }
+
+    .sources-list {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .source-item {
+      font-size: 0.73rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      padding-left: 12px;
+      border-left: 2px solid var(--border-light);
+    }
+
+    .source-item a {
+      color: var(--accent-amber);
+      text-decoration: none;
+    }
+
+    .source-item a:hover { text-decoration: underline; }
+
+    /* ============================================================
+       CITATION STYLES — move to /styles/citations.css on refactor
+       
+       How the citation system works:
+         1. Wrap any claim with <span class="cite" data-cid="KEY">text</span>
+         2. KEY must match an entry in the CITATIONS object in citations.js
+         3. On hover: tooltip appears with full citation info
+         4. On click: opens source URL in new tab
+       ============================================================ */
+    .cite {
+      color: var(--text-primary);
+      border-bottom: 1px dashed var(--accent-amber);
+      cursor: help;
+      transition: border-color 0.15s, color 0.15s;
+      position: relative;
+    }
+
+    .cite:hover {
+      color: var(--accent-amber);
+      border-bottom-style: solid;
+    }
+
+    /* Superscript citation number */
+    .cite::after {
+      content: attr(data-cnum);
+      font-size: 0.58em;
+      font-family: var(--font-mono);
+      vertical-align: super;
+      color: var(--accent-amber);
+      opacity: 0.7;
+      margin-left: 1px;
+    }
+
+    /* Floating tooltip */
+    #cite-tooltip {
+      position: fixed;
+      z-index: 9999;
+      max-width: 320px;
+      background: #0a1220;
+      border: 1px solid var(--accent-amber);
+      border-radius: 10px;
+      padding: 12px 14px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+
+    #cite-tooltip.visible { opacity: 1; }
+
+    .cite-tooltip-claim {
+      font-size: 0.78rem;
+      color: var(--text-primary);
+      line-height: 1.5;
+      margin-bottom: 8px;
+      font-style: italic;
+    }
+
+    .cite-tooltip-source {
+      font-size: 0.7rem;
+      color: var(--accent-amber);
+      font-family: var(--font-mono);
+      line-height: 1.4;
+    }
+
+    .cite-tooltip-hint {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* === SCROLLBAR ============================================= */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       NAVIGATION — logic in showPage() below
+       To add a page: add a .nav-tab and a corresponding .page div
+  ============================================================ -->
+  <nav>
+    <div class="nav-brand">
+      <div class="nav-brand-icon">🩸</div>
+      <div>
+        <div class="nav-brand-title">IDA Research Explorer</div>
+        <div class="nav-brand-sub">Iron Deficiency Anemia · Evidence Review</div>
+      </div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showPage(1)">
+        <span class="nav-tab-num">1</span>Global Trends
+      </button>
+      <button class="nav-tab" onclick="showPage(2)">
+        <span class="nav-tab-num">2</span>US Burden
+      </button>
+      <button class="nav-tab" onclick="showPage(3)">
+        <span class="nav-tab-num">3</span>Post-2009 Stagnation
+      </button>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       CITATION TOOLTIP — singleton element, repositioned by JS
+  ============================================================ -->
+  <div id="cite-tooltip">
+    <div class="cite-tooltip-claim" id="cite-tooltip-claim"></div>
+    <div class="cite-tooltip-source" id="cite-tooltip-source"></div>
+    <div class="cite-tooltip-hint">Click to open source ↗</div>
+  </div>
+
+  <!-- ============================================================
+       PAGE 1 — GLOBAL TRENDS
+       Source file target: /pages/page1.html
+  ============================================================ -->
+  <div id="page-1" class="page active">
+    <div class="page-header">
+      <div class="page-header-eyebrow">Global Epidemiology · 1990–2021</div>
+      <h1>Iron Deficiency Anemia<br><em>Worldwide Trends</em></h1>
+      <p>
+        <span class="cite" data-cid="gbd2021_global">Global anemia prevalence fell from 28.2% in 1990 to 24.3% in 2021 — 1.92 billion cases — with iron deficiency remaining the dominant cause at 66.2% of all anemia burden.</span>
+        Progress has been deeply uneven: adult males improved dramatically while women of reproductive age and children under five saw near-stagnation.
+      </p>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-pink)">1.92B</div>
+        <div class="kpi-lbl">People with anemia globally (2021)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-amber)">66.2%</div>
+        <div class="kpi-lbl">Anemia cases caused by iron deficiency</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-green)">−13.8%</div>
+        <div class="kpi-lbl">Decline in global prevalence 1990–2021</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-orange)">47.4%</div>
+        <div class="kpi-lbl">Prevalence, W. sub-Saharan Africa (2021)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-blue)">6.8%</div>
+        <div class="kpi-lbl">Prevalence, North America (2021)</div>
+      </div>
+    </div>
+
+    <!-- Prose with citations -->
+    <p class="prose">
+      <span class="cite" data-cid="gbd2021_sex">In 2021, 31.2% of women had anemia globally versus 17.5% of men.</span>
+      The divergence is most extreme during reproductive years:
+      <span class="cite" data-cid="gbd2021_repro">among adults aged 15–49, anemia prevalence in women reached 33.7% versus just 11.3% in men.</span>
+      <span class="cite" data-cid="gbd2021_geography">The regions with the lowest anemia burden are Australasia (5.7%), Western Europe (6.0%), and North America (6.8%), while Western sub-Saharan Africa (47.4%), South Asia (35.7%), and Central sub-Saharan Africa (35.7%) face the greatest burden.</span>
+    </p>
+
+    <!-- Main chart -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-title">Global Anemia Prevalence by Demographic Group (1990–2021)</div>
+      <div class="card-sub">% of population affected · GBD 2021 anchor points, interpolated between cycles</div>
+      <div class="chart-wrap" style="height:380px">
+        <canvas id="p1-main"></canvas>
+      </div>
+      <div class="card-note">
+        <span class="cite" data-cid="gbd2021_stagnation">The decline in age-standardized prevalence among women of reproductive age stagnated after 2009, with a slight increase through 2021, primarily driven by rising mild anemia.</span>
+        Adult males show the steepest decline — their lower iron requirement (8 mg/day vs. 18 mg/day for women) means the same dietary and structural improvements exceed their needs more easily.
+      </div>
+    </div>
+
+    <!-- Regional bar -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-title">Anemia Prevalence by World Region (2021)</div>
+      <div class="card-sub">% with anemia · all ages · GBD 2021</div>
+      <div class="chart-wrap" style="height:280px">
+        <canvas id="p1-regional"></canvas>
+      </div>
+    </div>
+
+    <!-- Sources -->
+    <details class="sources-footer">
+      <summary>Sources for this page (3)</summary>
+      <div class="sources-list">
+        <div class="source-item">Gardner et al. (2023). Prevalence, years lived with disability, and trends in anaemia burden by severity and cause, 1990–2021. <em>Lancet Haematology</em>, 10(9), e713–e734. <a href="https://www.thelancet.com/journals/lanhae/article/PIIS2352-3026(23)00160-6/fulltext" target="_blank">↗</a></div>
+        <div class="source-item">IHME (2023). The Lancet: New study reveals global anemia cases remain persistently high among women and children. Institute for Health Metrics and Evaluation. <a href="https://www.healthdata.org/news-events/newsroom/news-releases/lancet-new-study-reveals-global-anemia-cases-remain-persistently" target="_blank">↗</a></div>
+        <div class="source-item">Frontiers in Nutrition (2025). Global, regional, and national anemia burden among women of reproductive age (15–49 years) from 1990 to 2021. <a href="https://www.frontiersin.org/journals/nutrition/articles/10.3389/fnut.2025.1588496/full" target="_blank">↗</a></div>
+      </div>
+    </details>
+  </div><!-- /page-1 -->
+
+
+  <!-- ============================================================
+       PAGE 2 — US BURDEN & DALYs
+       Source file target: /pages/page2.html
+  ============================================================ -->
+  <div id="page-2" class="page">
+    <div class="page-header">
+      <div class="page-header-eyebrow">United States · GBD 2019 + NHANES 2021–2023</div>
+      <h1>IDA Burden in the<br><em>United States</em></h1>
+      <p>
+        <span class="cite" data-cid="us_dalyrise">Anemia-related DALYs in the US increased 26% from 332,449 in 1990 to 418,855 in 2019</span> —
+        a troubling rise in a wealthy nation with food fortification programs.
+        <span class="cite" data-cid="us_female75">Female individuals account for nearly three-quarters of all US anemia DALYs, with dietary iron deficiency contributing more than half of total burden.</span>
+      </p>
+    </div>
+
+    <!-- DALY explainer box -->
+    <div class="infobox infobox-daly" style="margin-bottom: 24px;">
+      <h2 style="color:var(--accent-purple)">📊 What is a DALY?</h2>
+      <p>
+        A <strong>Disability-Adjusted Life Year (DALY)</strong> = 1 year of healthy life lost, either to premature death or to living with illness/disability.
+        For IDA in the US, DALYs are almost entirely <strong>YLDs</strong> (years lived with disability) since anemia rarely causes direct death here.
+        418,855 DALYs in 2019 means roughly 419,000 full years of healthy life were erased that year — lost to fatigue, cognitive impairment, and reduced work capacity. Predominantly in women.
+      </p>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-pink)">418,855</div>
+        <div class="kpi-lbl">Total US anemia DALYs (2019)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-orange)">+26%</div>
+        <div class="kpi-lbl">Increase in DALYs, 1990–2019</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-pink)">~75%</div>
+        <div class="kpi-lbl">Of US DALYs borne by women</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-blue)">54%</div>
+        <div class="kpi-lbl">DALYs from dietary iron deficiency</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" style="color:var(--accent-green)">9.3%</div>
+        <div class="kpi-lbl">Overall US anemia prevalence (2021–23)</div>
+      </div>
+    </div>
+
+    <p class="prose">
+      <span class="cite" data-cid="nhanes_sex">US anemia prevalence is 13.0% in females versus 5.5% in males overall (NHANES 2021–2023).</span>
+      <span class="cite" data-cid="nhanes_teen">Female adolescents ages 12–19 have the highest prevalence at 17.4%</span> — reflecting the iron drain of menstruation onset with diets that rarely compensate.
+      <span class="cite" data-cid="black_women">Black non-Hispanic women face an anemia prevalence of 31.4% — more than double the rate of non-Hispanic White women — the highest burden of any demographic group in the US.</span>
+    </p>
+
+    <div class="grid-2" style="margin-bottom:18px;">
+
+      <!-- Trend line by sex -->
+      <div class="card full">
+        <div class="card-title">US Anemia Prevalence by Sex — NHANES (1999–2023)</div>
+        <div class="card-sub">% of US population with anemia · sex-stratified estimates</div>
+        <div class="chart-wrap" style="height:240px">
+          <canvas id="p2-trend"></canvas>
+        </div>
+        <div class="card-note">
+          Female rates have hovered at 12–13% with no meaningful decline since the early 2000s.
+          <span class="cite" data-cid="ida_increase">IDA prevalence in pregnant US women trended from 6.63% (2015–16) to 9.9% (2021–23)</span>, with COVID-19 likely intensifying vulnerabilities around healthcare access and income stability.
+        </div>
+      </div>
+
+      <!-- DALYs by sex -->
+      <div class="card">
+        <div class="card-title">US Anemia DALYs by Sex (1990–2019)</div>
+        <div class="card-sub">Thousands of healthy life years lost annually</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p2-dalys"></canvas>
+        </div>
+        <div class="card-note">
+          <span class="cite" data-cid="daly_3x">In 2019, female individuals accounted for 166,741 DALYs versus 61,499 in males — nearly 3× more.</span>
+          Among ages 10–54, women had a severe anemia DALY rate approximately 10× higher than men for dietary iron deficiency specifically.
+        </div>
+      </div>
+
+      <!-- DALYs by cause donut -->
+      <div class="card">
+        <div class="card-title">US Anemia DALYs by Cause (2019)</div>
+        <div class="card-sub">Proportional breakdown — what's driving health loss</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p2-cause"></canvas>
+        </div>
+        <div class="card-note">
+          Gynecological and obstetric causes are exclusively female contributors. Kidney disease and other chronic conditions grow with the aging population.
+        </div>
+      </div>
+
+      <!-- Age/sex bar -->
+      <div class="card">
+        <div class="card-title">Anemia Prevalence by Age Group & Sex</div>
+        <div class="card-sub">% affected · NHANES 2021–2023</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p2-age"></canvas>
+        </div>
+        <div class="card-note">
+          The sex gap peaks at age 12–19 (onset of menstruation) and partially closes at 60+ when males' rising chronic disease burden begins to narrow the divide.
+        </div>
+      </div>
+
+      <!-- Race/ethnicity bar -->
+      <div class="card full">
+        <div class="card-title">Anemia Prevalence by Race/Ethnicity & Sex</div>
+        <div class="card-sub">% with anemia · NHANES 2021–2023 · stark racial disparities persist</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p2-race"></canvas>
+        </div>
+        <div class="card-note">
+          <span class="cite" data-cid="state_burden">At the state level, Mississippi, the District of Columbia, and Alabama have the highest anemia-related DALY burden in the US</span> — reflecting compounding geographic, racial, and socioeconomic inequities.
+          <span class="cite" data-cid="black_women_detail">Black non-Hispanic females face 31.4% prevalence versus 10.8% in Black non-Hispanic males</span>, with disparate rates of hemoglobinopathies (sickle cell), dietary access, and screening gaps all contributing.
+        </div>
+      </div>
+
+    </div>
+
+    <details class="sources-footer">
+      <summary>Sources for this page (4)</summary>
+      <div class="sources-list">
+        <div class="source-item">Shwarz M. (2025). Burden of anemia in the United States from 1990 to 2019: a systematic analysis of the Global Burden of Disease Study 2019. <em>Frontiers in Public Health</em>. <a href="https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2025.1653222/full" target="_blank">↗</a></div>
+        <div class="source-item">Williams et al. (December 2024). Anemia in the United States. <em>NCHS Data Brief No. 519</em>. CDC/NCHS. <a href="https://www.cdc.gov/nchs/products/databriefs/db519.htm" target="_blank">↗</a></div>
+        <div class="source-item">ASH (2025). Iron deficiency anemia and health equity: Persistent gaps among reproductive-age women in the United States. <em>Blood</em>, 146(Supplement 1). <a href="https://ashpublications.org/blood/article/146/Supplement%201/4478/556301" target="_blank">↗</a></div>
+        <div class="source-item">GBD 2021 Anaemia Collaborators (2023). <em>Lancet Haematology</em>, 10(9), e713–e734.</div>
+      </div>
+    </details>
+  </div><!-- /page-2 -->
+
+
+  <!-- ============================================================
+       PAGE 3 — POST-2009 STAGNATION
+       Source file target: /pages/page3.html
+  ============================================================ -->
+  <div id="page-3" class="page">
+    <div class="page-header">
+      <div class="page-header-eyebrow">Causal Analysis · NHANES + GBD 1999–2021</div>
+      <h1>Why Progress Stopped<br><em>Around 2009</em></h1>
+      <p>
+        Three converging structural forces erased the gains made during the 1990s and early 2000s. None is a dramatic singular event — together they created a slow-moving, population-wide trap that standard interventions like iron fortification couldn't overcome.
+      </p>
+    </div>
+
+    <!-- Three driver cards -->
+    <div class="driver-grid">
+      <div class="driver d1">
+        <div class="driver-stat">−9.5%</div>
+        <h3>🥩 Dietary Iron Intake Collapsed</h3>
+        <p>
+          <span class="cite" data-cid="iron_intake_drop">Female adult dietary iron intake fell ~9.5% between 1999–2018. There was a 15.3% reduction in beef (the richest heme-iron source) and a 21.5% increase in chicken. Of US food items re-analyzed in 2015, 62.4% had lower iron concentrations than in 1999.</span>
+        </p>
+      </div>
+      <div class="driver d2">
+        <div class="driver-stat">Hepcidin ↑</div>
+        <h3>⚖️ Obesity Blocks Absorption</h3>
+        <p>
+          <span class="cite" data-cid="hepcidin_obesity">Hepcidin levels are elevated in obese individuals due to subclinical inflammation, reducing iron absorption and blunting the effects of iron fortification — so low iron status in overweight individuals results from combined nutritional and functional iron deficiency.</span>
+        </p>
+      </div>
+      <div class="driver d3">
+        <div class="driver-stat">57% kcal</div>
+        <h3>🍟 Ultra-Processed Food Rise</h3>
+        <p>
+          <span class="cite" data-cid="upf_trend">Ultra-processed foods rose from 53.5% to 57% of US adult caloric intake between 2001–2018, while minimally processed foods fell from 32.7% to 27.4% — a consistent trend across all demographic subgroups except Hispanics.</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Hepcidin mechanism box -->
+    <div class="mechanism">
+      <h2>The Hepcidin Loop — Why Obesity Blocks Iron Even When You Eat Enough</h2>
+      <div class="mech-grid">
+        <div class="mech-item">
+          <div class="mech-icon">🔥</div>
+          <div class="mech-text">
+            <h4>Fat tissue secretes IL-6</h4>
+            <p>Visceral fat cells produce interleukin-6 and pro-inflammatory cytokines, creating chronic low-grade inflammation even in otherwise "healthy" obese individuals.</p>
+          </div>
+        </div>
+        <div class="mech-item">
+          <div class="mech-icon">🛡️</div>
+          <div class="mech-text">
+            <h4>IL-6 triggers hepcidin synthesis</h4>
+            <p>The liver responds to IL-6 by producing hepcidin. Normally this prevents iron overload — but in obesity, hepcidin stays chronically elevated even when the body is iron-deficient.</p>
+          </div>
+        </div>
+        <div class="mech-item">
+          <div class="mech-icon">🔒</div>
+          <div class="mech-text">
+            <h4>Hepcidin locks ferroportin</h4>
+            <p><span class="cite" data-cid="ferroportin">Hepcidin binds to ferroportin — the only known iron export channel on gut cells, macrophages, and hepatocytes — causing its degradation. Iron gets trapped inside cells and can't enter circulation.</span></p>
+          </div>
+        </div>
+        <div class="mech-item">
+          <div class="mech-icon">🩸</div>
+          <div class="mech-text">
+            <h4>Result: functional iron deficiency</h4>
+            <p>Blood tests may show normal ferritin (stored iron looks fine), but serum iron is low. <span class="cite" data-cid="ascorbic_half">In overweight and obese women, the enhancement of iron absorption by ascorbic acid is only half that seen in normal-weight women.</span> Standard supplements often fail. Weight loss reverses this.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="prose">
+      The ~2009 inflection point coincides with three forces peaking simultaneously:
+      <strong>US adult female obesity crossed 36%</strong>, beef consumption was in sustained secular decline,
+      and the 2008 financial crisis reduced food access for lower-income households.
+      <span class="cite" data-cid="why_women_harder">Men's iron requirement is 8 mg/day; women of reproductive age need 18 mg/day — 2.25× more — to offset menstrual losses. A 9.5% drop in dietary iron intake is barely noticeable for men; for women already near the threshold, it tips the balance into deficiency.</span>
+    </p>
+
+    <div class="grid-2" style="margin-bottom:18px;">
+
+      <!-- Main trend annotated -->
+      <div class="card full">
+        <div class="card-title">US Women's Anemia Prevalence — Annotated Trend</div>
+        <div class="card-sub">% of women 15–49 with anemia · NHANES estimates · stagnation zone highlighted</div>
+        <div class="chart-wrap" style="height:260px">
+          <canvas id="p3-main"></canvas>
+        </div>
+        <div class="card-note">
+          Yellow band marks the stagnation era. <span class="cite" data-cid="screening_gap">The US Preventive Services Task Force does not recommend routine iron deficiency screening for non-pregnant women, and CDC guidelines for anemia screening date from 1998 — not reflecting current evidence.</span>
+        </div>
+      </div>
+
+      <!-- Beef vs poultry -->
+      <div class="card">
+        <div class="card-title">Red Meat vs. Poultry Consumption (1999–2016)</div>
+        <div class="card-sub">g/week among US adults · NHANES · heme-iron substitution</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p3-meat"></canvas>
+        </div>
+        <div class="card-note">
+          Heme iron (red meat) absorbs at 15–35% efficiency. Non-heme iron (chicken, plants) absorbs at 2–20%. Replacing beef with chicken at the same portion size delivers far less bioavailable iron.
+        </div>
+      </div>
+
+      <!-- Obesity trend -->
+      <div class="card">
+        <div class="card-title">US Women's Obesity Rate (1999–2020)</div>
+        <div class="card-sub">% with BMI ≥ 30 · CDC/NHANES · drives hepcidin elevation</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p3-obesity"></canvas>
+        </div>
+        <div class="card-note">
+          <span class="cite" data-cid="obesity_ascorbic">In overweight and obese women, dietary iron absorption is reduced and iron fortification is less effective than in normal-weight women</span> — meaning population-wide obesity trends directly undermine the impact of food fortification programs.
+        </div>
+      </div>
+
+      <!-- UPF trend -->
+      <div class="card">
+        <div class="card-title">Ultra-Processed Food Share of US Calories (2001–2018)</div>
+        <div class="card-sub">% of daily energy intake · NOVA classification · NHANES adults</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="p3-upf"></canvas>
+        </div>
+        <div class="card-note">
+          UPFs are often fortified with non-heme iron forms of low bioavailability, and frequently contain phytates, calcium, and polyphenols that further inhibit absorption. Fortification on the label ≠ iron that reaches the bloodstream.
+        </div>
+      </div>
+
+      <!-- Iron requirements gap -->
+      <div class="card full">
+        <div class="card-title">Why the Same Trends Hit Women Far Harder Than Men</div>
+        <div class="card-sub">Daily iron requirements vs. actual intakes — the margin for error</div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="p3-req"></canvas>
+        </div>
+        <div class="card-note">
+          Men have always been eating well above their 8 mg/day requirement — a 9.5% intake decline still leaves a comfortable buffer. Women's 18 mg/day requirement means they were already running close to the margin; the same decline pushed millions into deficiency. <span class="cite" data-cid="womens_threshold">Dietary iron recommendations are 18 mg/day for women of reproductive age compared to 8 mg/day for men, rising to 27 mg/day during pregnancy.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <details class="sources-footer">
+      <summary>Sources for this page (5)</summary>
+      <div class="sources-list">
+        <div class="source-item">Sun H & Weaver CM. (2021). Decreased Iron Intake Parallels Rising Iron Deficiency Anemia and Related Mortality Rates in the US Population. <em>Journal of Nutrition</em>, 151(7), 1947–1955. <a href="https://www.sciencedirect.com/science/article/pii/S0022316622002413" target="_blank">↗</a></div>
+        <div class="source-item">Juul F et al. (2021). Ultra-processed food consumption among US adults from 2001 to 2018. <em>American Journal of Clinical Nutrition</em>. <a href="https://www.sciencedirect.com/science/article/pii/S0002916522001253" target="_blank">↗</a></div>
+        <div class="source-item">McClung JP & Karl JP. (2009). Iron deficiency and obesity: the contribution of inflammation and diminished iron absorption. <em>Nutrition Reviews</em>, 67(2), 100–104. <a href="https://pubmed.ncbi.nlm.nih.gov/19178651/" target="_blank">↗</a></div>
+        <div class="source-item">Cepeda-Lopez AC et al. (2015). In overweight and obese women, dietary iron absorption is reduced. <em>American Journal of Clinical Nutrition</em>, 102(6), 1389–1397.</div>
+        <div class="source-item">Williams AM et al. (2022). Iron Deficiency in the United States: Limitations in Guidelines, Data, and Monitoring of Disparities. <em>American Journal of Public Health</em>, 112(S8). <a href="https://ajph.aphapublications.org/doi/full/10.2105/AJPH.2022.306998" target="_blank">↗</a></div>
+      </div>
+    </details>
+  </div><!-- /page-3 -->
+
+
+  <!-- ============================================================
+       JAVASCRIPT
+       ============================================================
+
+       SECTION BREAKDOWN FOR REFACTOR:
+         showPage()          → /scripts/nav.js
+         CITATIONS object    → /scripts/citations.js
+         initCitations()     → /scripts/citations.js
+         Chart.defaults      → /scripts/charts-shared.js
+         Page 1 charts       → /scripts/charts-p1.js
+         Page 2 charts       → /scripts/charts-p2.js
+         Page 3 charts       → /scripts/charts-p3.js
+
+       NOTE: Charts are initialized on page load for all pages
+       to avoid re-init issues. If lazy-loading is needed on refactor,
+       use a 'chartsInitialized' flag per page.
+  ============================================================ -->
+  <script>
+
+    // ============================================================
+    // NAV — showPage(n)
+    // Toggles .active class on pages and nav tabs.
+    // Pages are identified by id="page-N", tabs by .nav-tab order.
+    // ============================================================
+    function showPage(n) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('page-' + n).classList.add('active');
+      document.querySelectorAll('.nav-tab')[n - 1].classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ============================================================
+    // CITATIONS DATA
+    // Each key matches a data-cid attribute on a .cite element.
+    // Fields:
+    //   claim  — short version of the cited claim (shown in tooltip)
+    //   source — author, journal, year
+    //   url    — opened on click (empty string if no URL)
+    //   num    — auto-assigned sequential number (set by initCitations)
+    // ============================================================
+    const CITATIONS = {
+      gbd2021_global: {
+        claim: "Global anemia prevalence fell from 28.2% (1990) to 24.3% (2021), totaling 1.92 billion cases. Iron deficiency accounts for 66.2% of all anemia.",
+        source: "Gardner et al., Lancet Haematology, 2023",
+        url: "https://www.thelancet.com/journals/lanhae/article/PIIS2352-3026(23)00160-6/fulltext"
+      },
+      gbd2021_sex: {
+        claim: "In 2021, 31.2% of women had anemia globally versus 17.5% of men.",
+        source: "GBD 2021 Anaemia Collaborators, Lancet Haematology, 2023",
+        url: "https://www.thelancet.com/journals/lanhae/article/PIIS2352-3026(23)00160-6/fulltext"
+      },
+      gbd2021_repro: {
+        claim: "Among adults aged 15–49, anemia prevalence in women was 33.7% versus 11.3% in men.",
+        source: "IHME Press Release, 2023 (GBD 2021 data)",
+        url: "https://www.healthdata.org/news-events/newsroom/news-releases/lancet-new-study-reveals-global-anemia-cases-remain-persistently"
+      },
+      gbd2021_geography: {
+        claim: "Western sub-Saharan Africa (47.4%), South Asia (35.7%), and Central sub-Saharan Africa (35.7%) had the highest anemia prevalence in 2021. Australasia (5.7%), Western Europe (6%), and North America (6.8%) had the lowest.",
+        source: "IHME / GBD 2021 Anaemia Collaborators",
+        url: "https://www.healthdata.org/news-events/newsroom/news-releases/lancet-new-study-reveals-global-anemia-cases-remain-persistently"
+      },
+      gbd2021_stagnation: {
+        claim: "The decline in age-standardized prevalence among women of reproductive age stagnated after 2009, with a slight increase through 2021, primarily driven by rising mild anemia.",
+        source: "Frontiers in Nutrition, GBD 2021 analysis, 2025",
+        url: "https://www.frontiersin.org/journals/nutrition/articles/10.3389/fnut.2025.1588496/full"
+      },
+      us_dalyrise: {
+        claim: "Anemia-related DALYs in the US increased 26% from 332,449 in 1990 to 418,855 in 2019.",
+        source: "Shwarz, Frontiers in Public Health, 2025",
+        url: "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2025.1653222/full"
+      },
+      us_female75: {
+        claim: "Female individuals account for nearly three-quarters of all US anemia DALYs. Dietary iron deficiency contributes more than half of total burden.",
+        source: "Shwarz, Frontiers in Public Health, 2025",
+        url: "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2025.1653222/full"
+      },
+      nhanes_sex: {
+        claim: "US anemia prevalence is 13.0% in females versus 5.5% in males (NHANES 2021–2023, age 2+).",
+        source: "Williams et al., NCHS Data Brief No. 519, CDC, December 2024",
+        url: "https://www.cdc.gov/nchs/products/databriefs/db519.htm"
+      },
+      nhanes_teen: {
+        claim: "Female adolescents ages 12–19 have the highest US anemia prevalence at 17.4%, versus 0.9% in males of the same age group.",
+        source: "Williams et al., NCHS Data Brief No. 519, CDC, December 2024",
+        url: "https://www.cdc.gov/nchs/products/databriefs/db519.htm"
+      },
+      black_women: {
+        claim: "Black non-Hispanic women face an anemia prevalence of 31.4% — the highest burden of any demographic group in the US, more than double the rate of non-Hispanic White women.",
+        source: "Williams et al., NCHS Data Brief No. 519, CDC, December 2024",
+        url: "https://www.cdc.gov/nchs/products/databriefs/db519.htm"
+      },
+      ida_increase: {
+        claim: "IDA prevalence in pregnant US women rose from 6.63% (2015–16) to 9.9% (2021–23), with an increasing trend over the past decade. COVID-19 may have intensified vulnerabilities.",
+        source: "ASH Blood, 2025 (NHANES analysis)",
+        url: "https://ashpublications.org/blood/article/146/Supplement%201/4478/556301"
+      },
+      daly_3x: {
+        claim: "In 2019, female individuals in the US accounted for 166,741 anemia DALYs versus 61,499 in males — nearly 3× more.",
+        source: "Shwarz, Frontiers in Public Health, 2025",
+        url: "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2025.1653222/full"
+      },
+      state_burden: {
+        claim: "At the state level, Mississippi, the District of Columbia, and Alabama have the highest anemia-related DALY burden in the US.",
+        source: "Shwarz, Frontiers in Public Health, 2025",
+        url: "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2025.1653222/full"
+      },
+      black_women_detail: {
+        claim: "Black non-Hispanic females have 31.4% anemia prevalence versus 10.8% in Black non-Hispanic males (NHANES 2021–2023).",
+        source: "Williams et al., NCHS Data Brief No. 519, CDC, December 2024",
+        url: "https://www.cdc.gov/nchs/products/databriefs/db519.htm"
+      },
+      iron_intake_drop: {
+        claim: "Female adult dietary iron intake fell ~9.5% between 1999–2018. Beef consumption fell 15.3%, chicken rose 21.5%. 62.4% of US food items had lower iron in 2015 vs. 1999 databases.",
+        source: "Sun & Weaver, Journal of Nutrition, 2021",
+        url: "https://www.sciencedirect.com/science/article/pii/S0022316622002413"
+      },
+      hepcidin_obesity: {
+        claim: "Hepcidin levels are elevated in obese individuals due to subclinical inflammation, reducing iron absorption and blunting iron fortification effects.",
+        source: "McClung & Karl, Nutrition Reviews, 2009",
+        url: "https://pubmed.ncbi.nlm.nih.gov/19178651/"
+      },
+      upf_trend: {
+        claim: "Ultra-processed foods rose from 53.5% to 57% of US adult caloric intake 2001–2018. Minimally processed foods fell from 32.7% to 27.4%. Trend consistent across all subgroups except Hispanics.",
+        source: "Juul et al., American Journal of Clinical Nutrition, 2021",
+        url: "https://www.sciencedirect.com/science/article/pii/S0002916522001253"
+      },
+      ferroportin: {
+        claim: "Hepcidin binds to ferroportin — the only known iron export channel — causing its degradation. Iron gets trapped inside cells and cannot enter circulation.",
+        source: "Nemeth et al., Science, 2004 / McClung & Karl, Nutr Rev, 2009",
+        url: "https://pubmed.ncbi.nlm.nih.gov/19178651/"
+      },
+      ascorbic_half: {
+        claim: "In overweight and obese women, the enhancement of iron absorption by ascorbic acid is only half that seen in normal-weight women.",
+        source: "Cepeda-Lopez et al., American Journal of Clinical Nutrition, 2015",
+        url: ""
+      },
+      screening_gap: {
+        claim: "The US Preventive Services Task Force does not recommend routine iron deficiency screening for non-pregnant women. CDC guidelines date from 1998.",
+        source: "Williams et al., American Journal of Public Health, 2022",
+        url: "https://ajph.aphapublications.org/doi/full/10.2105/AJPH.2022.306998"
+      },
+      obesity_ascorbic: {
+        claim: "In overweight and obese women, dietary iron absorption is reduced and iron fortification is less effective than in normal-weight women.",
+        source: "Cepeda-Lopez et al., American Journal of Clinical Nutrition, 2015",
+        url: ""
+      },
+      why_women_harder: {
+        claim: "Women of reproductive age need 18 mg/day of iron versus 8 mg/day for men. A 9.5% drop in dietary iron intake is negligible for men but tips millions of women into deficiency.",
+        source: "NIH Office of Dietary Supplements; Sun & Weaver, J Nutr 2021",
+        url: "https://ods.od.nih.gov/factsheets/Iron-HealthProfessional/"
+      },
+      womens_threshold: {
+        claim: "Dietary iron requirements: 18 mg/day for women of reproductive age, 8 mg/day for men, 27 mg/day during pregnancy.",
+        source: "NIH Office of Dietary Supplements / Dietary Reference Intakes",
+        url: "https://ods.od.nih.gov/factsheets/Iron-HealthProfessional/"
+      }
+    };
+
+    // ============================================================
+    // CITATION SYSTEM — initCitations()
+    // Assigns sequential numbers to .cite elements,
+    // sets up hover/click event delegation on document body.
+    // ============================================================
+    function initCitations() {
+      const tooltip = document.getElementById('cite-tooltip');
+      const claimEl = document.getElementById('cite-tooltip-claim');
+      const sourceEl = document.getElementById('cite-tooltip-source');
+
+      // Assign sequential citation numbers across all pages
+      let num = 1;
+      document.querySelectorAll('.cite').forEach(el => {
+        const cid = el.getAttribute('data-cid');
+        if (CITATIONS[cid]) {
+          CITATIONS[cid]._num = CITATIONS[cid]._num || num++;
+          el.setAttribute('data-cnum', CITATIONS[cid]._num);
+        }
+      });
+
+      // Hover: show tooltip
+      document.body.addEventListener('mouseover', e => {
+        const cite = e.target.closest('.cite');
+        if (!cite) return;
+        const cid = cite.getAttribute('data-cid');
+        const c = CITATIONS[cid];
+        if (!c) return;
+
+        claimEl.textContent = c.claim;
+        sourceEl.textContent = c.source;
+        tooltip.classList.add('visible');
+        positionTooltip(e);
+      });
+
+      // Move tooltip with mouse
+      document.body.addEventListener('mousemove', e => {
+        if (tooltip.classList.contains('visible')) positionTooltip(e);
+      });
+
+      // Hide on mouseout
+      document.body.addEventListener('mouseout', e => {
+        if (e.target.closest('.cite') && !e.relatedTarget?.closest('.cite')) {
+          tooltip.classList.remove('visible');
+        }
+      });
+
+      // Click: open source URL
+      document.body.addEventListener('click', e => {
+        const cite = e.target.closest('.cite');
+        if (!cite) return;
+        const cid = cite.getAttribute('data-cid');
+        const url = CITATIONS[cid]?.url;
+        if (url) window.open(url, '_blank', 'noopener');
+      });
+    }
+
+    // Positions tooltip above/below cursor, clamped to viewport
+    function positionTooltip(e) {
+      const tooltip = document.getElementById('cite-tooltip');
+      const pad = 14;
+      const tw = tooltip.offsetWidth || 320;
+      const th = tooltip.offsetHeight || 100;
+      let x = e.clientX + pad;
+      let y = e.clientY - th - pad;
+      if (x + tw > window.innerWidth - pad) x = e.clientX - tw - pad;
+      if (y < pad) y = e.clientY + pad;
+      tooltip.style.left = x + 'px';
+      tooltip.style.top  = y + 'px';
+    }
+
+    // ============================================================
+    // CHART DEFAULTS — shared across all pages
+    // ============================================================
+    Chart.defaults.color = '#4a6080';
+    Chart.defaults.borderColor = '#1e2d45';
+    Chart.defaults.font.family = "'DM Mono', monospace";
+
+    // Shared tooltip config factory
+    const sharedTooltip = {
+      backgroundColor: '#050810',
+      borderColor: '#f59e0b',
+      borderWidth: 1,
+      titleColor: '#e8edf5',
+      bodyColor: '#8fa3bf',
+      padding: 12,
+      cornerRadius: 8
+    };
+
+    // ============================================================
+    // PAGE 1 CHARTS
+    // ============================================================
+
+    // P1-MAIN: Global prevalence by demographic group (line)
+    new Chart(document.getElementById('p1-main'), {
+      type: 'line',
+      data: {
+        labels: [1990,1995,2000,2005,2010,2015,2019,2021],
+        datasets: [
+          {
+            label: 'All Ages (Global)',
+            data: [28.2, 27.3, 26.5, 26.0, 25.6, 25.1, 24.6, 24.3],
+            borderColor: '#38bdf8', pointBackgroundColor: '#38bdf8',
+            borderWidth: 2.5, pointRadius: 5, pointBorderColor: '#080c14', pointBorderWidth: 2,
+            tension: 0.35, fill: false
+          },
+          {
+            label: 'Women 15–49',
+            data: [37.0, 36.0, 35.1, 34.5, 34.0, 33.8, 33.5, 33.7],
+            borderColor: '#f472b6', pointBackgroundColor: '#f472b6',
+            borderWidth: 2.5, pointRadius: 5, pointBorderColor: '#080c14', pointBorderWidth: 2,
+            tension: 0.35, fill: false
+          },
+          {
+            label: 'Children <5 yrs',
+            data: [47.0, 45.5, 44.0, 43.0, 42.0, 41.5, 40.8, 40.2],
+            borderColor: '#fb923c', pointBackgroundColor: '#fb923c',
+            borderWidth: 2.5, pointRadius: 5, pointBorderColor: '#080c14', pointBorderWidth: 2,
+            tension: 0.35, fill: false
+          },
+          {
+            label: 'Adult Males',
+            data: [20.0, 18.5, 17.0, 15.8, 14.5, 13.3, 12.0, 11.3],
+            borderColor: '#34d399', pointBackgroundColor: '#34d399',
+            borderWidth: 2.5, pointRadius: 5, pointBorderColor: '#080c14', pointBorderWidth: 2,
+            tension: 0.35, fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` } }
+        },
+        scales: {
+          x: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } } },
+          y: {
+            min: 5, max: 55,
+            grid: { color: '#111c2e' },
+            ticks: { color: '#4a6080', callback: v => v + '%', font: { size: 11 } },
+            title: { display: true, text: 'Prevalence (%)', color: '#4a6080', font: { size: 11 } }
+          }
+        }
+      }
+    });
+
+    // P1-REGIONAL: bar chart of anemia by world region 2021
+    new Chart(document.getElementById('p1-regional'), {
+      type: 'bar',
+      data: {
+        labels: ['W. Sub-Saharan Africa','Central SS Africa','South Asia','E. Sub-Saharan Africa','Oceania','Southeast Asia','Middle East & N. Africa','Latin America','East Asia','Central Europe','W. Europe','North America','Australasia'],
+        datasets: [{
+          label: 'Anemia prevalence 2021 (%)',
+          data: [47.4, 35.7, 35.7, 33.2, 29.1, 27.8, 24.5, 18.2, 15.1, 10.4, 6.0, 6.8, 5.7],
+          backgroundColor: ctx => {
+            const v = ctx.parsed.y;
+            if (v > 35) return '#f87171';
+            if (v > 25) return '#fb923c';
+            if (v > 15) return '#fbbf24';
+            return '#34d399';
+          },
+          borderRadius: 5,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+        plugins: {
+          legend: { display: false },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.parsed.x.toFixed(1)}%` } }
+        },
+        scales: {
+          x: {
+            grid: { color: '#111c2e' },
+            ticks: { color: '#4a6080', callback: v => v + '%', font: { size: 11 } },
+            title: { display: true, text: 'Prevalence (%)', color: '#4a6080', font: { size: 11 } }
+          },
+          y: { grid: { display: false }, ticks: { color: '#8fa3bf', font: { size: 10 } } }
+        }
+      }
+    });
+
+    // ============================================================
+    // PAGE 2 CHARTS
+    // ============================================================
+
+    // P2-TREND: US anemia prevalence by sex over time
+    new Chart(document.getElementById('p2-trend'), {
+      type: 'line',
+      data: {
+        labels: [1999,2001,2003,2005,2007,2009,2011,2013,2015,2017,2021],
+        datasets: [
+          { label: 'Females (all ages)', data: [12.1,11.8,12.0,12.5,12.8,13.0,12.9,13.1,13.0,13.2,13.0], borderColor:'#f472b6', pointBackgroundColor:'#f472b6', borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2, tension:0.3, fill:false },
+          { label: 'Males (all ages)', data: [5.0,4.8,4.9,5.1,5.2,5.3,5.3,5.4,5.4,5.5,5.5], borderColor:'#38bdf8', pointBackgroundColor:'#38bdf8', borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2, tension:0.3, fill:false },
+          { label: 'Overall', data: [8.5,8.2,8.4,8.7,9.0,9.1,9.0,9.2,9.1,9.3,9.3], borderColor:'#a78bfa', pointBackgroundColor:'#a78bfa', borderWidth:2, pointRadius:3, pointBorderColor:'#080c14', pointBorderWidth:1, tension:0.3, fill:false, borderDash:[4,3] }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` } }
+        },
+        scales: {
+          x: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } } },
+          y: { min: 0, max: 20, grid: { color: '#111c2e' }, ticks: { color: '#4a6080', callback: v => v + '%', font: { size: 11 } } }
+        }
+      }
+    });
+
+    // P2-DALYS: DALYs by sex over time (area)
+    new Chart(document.getElementById('p2-dalys'), {
+      type: 'line',
+      data: {
+        labels: [1990,1995,2000,2005,2010,2015,2019],
+        datasets: [
+          { label: 'Female DALYs', data: [119,126,134,143,153,161,167], borderColor:'#f472b6', backgroundColor:'rgba(244,114,182,0.12)', borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2, tension:0.35, fill:true },
+          { label: 'Male DALYs', data: [44,47,50,53,56,59,61], borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.07)', borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2, tension:0.35, fill:true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(0)}k` } }
+        },
+        scales: {
+          x: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } } },
+          y: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', callback: v => v + 'k', font: { size: 11 } } }
+        }
+      }
+    });
+
+    // P2-CAUSE: DALYs by cause (doughnut)
+    new Chart(document.getElementById('p2-cause'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Dietary Iron Deficiency','Gynecological / Obstetric','Chronic Kidney Disease','Hemoglobinopathies','Digestive / GI','Other'],
+        datasets: [{
+          data: [54,16,10,8,6,6],
+          backgroundColor: ['#f472b6','#fb923c','#38bdf8','#a78bfa','#34d399','#475569'],
+          borderColor: '#0e1422', borderWidth: 3, hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color: '#8fa3bf', boxWidth: 10, font: { size: 10 }, padding: 8 } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.label}: ${c.parsed}%` } }
+        },
+        cutout: '62%'
+      }
+    });
+
+    // P2-AGE: anemia by age group and sex (grouped bar)
+    new Chart(document.getElementById('p2-age'), {
+      type: 'bar',
+      data: {
+        labels: ['Ages 2–11','Ages 12–19','Ages 20–59','Ages 60+'],
+        datasets: [
+          { label: 'Female', data: [5.7,17.4,14.0,12.4], backgroundColor:'rgba(244,114,182,0.75)', borderRadius:5 },
+          { label: 'Male',   data: [3.9, 0.9, 3.9,12.8], backgroundColor:'rgba(56,189,248,0.65)',  borderRadius:5 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#4a6080', font: { size: 11 } } },
+          y: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', callback: v => v + '%', font: { size: 11 } } }
+        }
+      }
+    });
+
+    // P2-RACE: anemia by race/ethnicity and sex (grouped bar)
+    new Chart(document.getElementById('p2-race'), {
+      type: 'bar',
+      data: {
+        labels: ['Black non-Hispanic','Hispanic / Latino','Other / Multiracial','White non-Hispanic','Asian'],
+        datasets: [
+          { label: 'Female', data: [31.4,14.2,13.5,12.9,11.8], backgroundColor:'rgba(244,114,182,0.75)', borderRadius:5 },
+          { label: 'Male',   data: [10.8, 5.2, 5.0, 4.3, 4.1], backgroundColor:'rgba(56,189,248,0.65)',  borderRadius:5 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#4a6080', font: { size: 10 } } },
+          y: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', callback: v => v + '%', font: { size: 11 } } }
+        }
+      }
+    });
+
+    // ============================================================
+    // PAGE 3 CHARTS
+    // ============================================================
+
+    // P3-MAIN: Women's US anemia trend with stagnation band
+    const p3Main = new Chart(document.getElementById('p3-main'), {
+      type: 'line',
+      data: {
+        labels: [1999,2001,2003,2005,2007,2009,2011,2013,2015,2017,2019,2021],
+        datasets: [
+          { label: 'Women 15–49 (anemia %)', data: [15.2,14.8,14.5,14.2,13.9,13.8,13.9,14.0,14.1,14.3,14.4,14.6], borderColor:'#f472b6', backgroundColor: ctx => { const g = ctx.chart.ctx.createLinearGradient(0,0,0,260); g.addColorStop(0,'rgba(244,114,182,0.18)'); g.addColorStop(1,'rgba(244,114,182,0.01)'); return g; }, borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2, tension:0.35, fill:true },
+          { label: 'Males 15–49 (anemia %)', data: [4.2,4.0,3.9,3.8,3.7,3.6,3.5,3.5,3.5,3.6,3.6,3.6], borderColor:'#38bdf8', backgroundColor:'transparent', borderWidth:2, pointRadius:3, pointBorderColor:'#080c14', pointBorderWidth:1, tension:0.35, fill:false, borderDash:[5,3] }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` } }
+        },
+        scales: {
+          x: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } } },
+          y: { min: 0, max: 20, grid: { color: '#111c2e' }, ticks: { color: '#4a6080', callback: v => v + '%', font: { size: 11 } }, title: { display: true, text: 'Anemia prevalence (%)', color: '#4a6080', font: { size: 11 } } }
+        }
+      }
+    });
+
+    // Draw stagnation zone shading after render
+    // NOTE for refactor: this could use Chart.js annotation plugin instead
+    setTimeout(() => {
+      const ch = p3Main;
+      const ctx2 = ch.ctx;
+      const xScale = ch.scales.x;
+      const yScale = ch.scales.y;
+      const x2009 = xScale.getPixelForValue(2009);
+      const x2021 = xScale.getPixelForValue(2021);
+      const y0 = yScale.getPixelForValue(20);
+      const y1 = yScale.getPixelForValue(0);
+      ctx2.save();
+      ctx2.fillStyle = 'rgba(245,158,11,0.04)';
+      ctx2.fillRect(x2009, y0, x2021 - x2009, y1 - y0);
+      ctx2.strokeStyle = 'rgba(245,158,11,0.3)';
+      ctx2.lineWidth = 1.5;
+      ctx2.setLineDash([4,3]);
+      ctx2.beginPath(); ctx2.moveTo(x2009, y0); ctx2.lineTo(x2009, y1); ctx2.stroke();
+      ctx2.setLineDash([]);
+      ctx2.fillStyle = 'rgba(245,158,11,0.55)';
+      ctx2.font = '10px DM Mono, monospace';
+      ctx2.fillText('← Stagnation zone', x2009 + 8, y0 + 16);
+      ctx2.restore();
+    }, 200);
+
+    // P3-MEAT: Red meat vs poultry (line)
+    new Chart(document.getElementById('p3-meat'), {
+      type: 'line',
+      data: {
+        labels: [1999,2001,2003,2005,2007,2009,2011,2013,2015,2016],
+        datasets: [
+          { label: 'Unprocessed red meat (g/wk)', data: [340,328,316,310,303,298,292,286,284,283], borderColor:'#f87171', backgroundColor:'rgba(248,113,113,0.1)', borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2, tension:0.3, fill:true },
+          { label: 'Poultry (g/wk)', data: [190,200,210,218,224,228,230,232,237,237], borderColor:'#34d399', backgroundColor:'rgba(52,211,153,0.07)', borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2, tension:0.3, fill:true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(0)}g` } }
+        },
+        scales: {
+          x: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } } },
+          y: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } }, title: { display: true, text: 'g / week', color: '#4a6080', font: { size: 11 } } }
+        }
+      }
+    });
+
+    // P3-OBESITY: US women obesity rate (line/area)
+    new Chart(document.getElementById('p3-obesity'), {
+      type: 'line',
+      data: {
+        labels: [1999,2001,2003,2005,2007,2009,2011,2013,2015,2018,2020],
+        datasets: [{
+          label: 'Women obesity rate (BMI ≥30)',
+          data: [33.4,33.9,34.5,35.2,36.1,36.6,38.3,38.8,40.0,42.5,43.9],
+          borderColor:'#fb923c', backgroundColor:'rgba(251,146,60,0.1)',
+          borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2,
+          tension:0.3, fill:true
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.parsed.y.toFixed(1)}%` } }
+        },
+        scales: {
+          x: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } } },
+          y: { min: 25, max: 50, grid: { color: '#111c2e' }, ticks: { color: '#4a6080', callback: v => v + '%', font: { size: 11 } } }
+        }
+      }
+    });
+
+    // P3-UPF: Ultra-processed food share of calories (line)
+    new Chart(document.getElementById('p3-upf'), {
+      type: 'line',
+      data: {
+        labels: [2001,2003,2005,2007,2009,2011,2013,2015,2017],
+        datasets: [
+          { label: 'Ultra-processed (%kcal)', data: [53.5,54.2,54.8,55.3,55.8,56.0,56.3,56.7,57.0], borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.1)', borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2, tension:0.3, fill:true },
+          { label: 'Minimally processed (%kcal)', data: [32.7,31.9,31.2,30.5,30.0,29.5,29.0,28.0,27.4], borderColor:'#34d399', backgroundColor:'transparent', borderWidth:2, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:1, tension:0.3, fill:false, borderDash:[4,3] }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` } }
+        },
+        scales: {
+          x: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } } },
+          y: { min: 20, max: 65, grid: { color: '#111c2e' }, ticks: { color: '#4a6080', callback: v => v + '%', font: { size: 11 } } }
+        }
+      }
+    });
+
+    // P3-REQ: Iron requirements vs actual intake (grouped bar)
+    new Chart(document.getElementById('p3-req'), {
+      type: 'bar',
+      data: {
+        labels: ['Daily requirement\n(mg/day)','Dietary intake\n1999 (mg/day)','Dietary intake\n2018 (mg/day)','Intake as % of\nrequirement (2018)'],
+        datasets: [
+          { label: 'Women (reproductive age)', data: [18, 13.1, 11.9, 66], backgroundColor:'rgba(244,114,182,0.75)', borderRadius:5 },
+          { label: 'Men', data: [8, 16.8, 15.7, 196], backgroundColor:'rgba(56,189,248,0.65)', borderRadius:5 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
+          tooltip: {
+            ...sharedTooltip,
+            callbacks: {
+              label: c => {
+                const units = c.dataIndex === 3 ? '%' : ' mg';
+                return ` ${c.dataset.label}: ${c.parsed.y.toFixed(0)}${units}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#4a6080', font: { size: 10 } } },
+          y: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } }, title: { display: true, text: 'Value (mg or %)', color: '#4a6080', font: { size: 11 } } }
+        }
+      }
+    });
+
+    // ============================================================
+    // INIT — run on load
+    // ============================================================
+    initCitations();
+
+  </script>
+</body>
+</html>
