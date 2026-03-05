@@ -90,8 +90,10 @@
               <span>0.5</span><span>1.0</span><span>1.5</span><span>2.0</span><span>2.5</span><span>3.0</span>
             </div>
             <div class="pb-excl-coded-note" style="display:block; margin-top:6px;">
-              Flags patients whose latest Hb is &ge; threshold below their personal mean baseline
-              (up to 5 preceding readings). Requires &ge; 2 Hb measurements.
+              Flags patients whose latest Hb is &ge; threshold below their
+              <strong>Bayesian adaptive setpoint</strong> &mdash; a personalized running estimate
+              that updates with each reading (conjugate Gaussian model).
+              Requires &ge; 2 Hb measurements.
             </div>
           </div>
         </div>

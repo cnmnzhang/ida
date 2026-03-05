@@ -283,9 +283,9 @@ function _pbUpdateOutput() {
     subtitle   = 'Diagnostic gap only';
     signalDesc = 'Lab-defined anemia (WHO) with no coded anemia diagnosis on record.';
   } else {
-    subtitle   = `Drop from personal baseline \u2265 ${threshold.toFixed(1)} g/dL`;
-    signalDesc = `Latest Hb is \u2265 ${threshold.toFixed(1)} g/dL below patient\u2019s personal mean baseline ` +
-                 `(up to 5 preceding readings). Requires \u2265 2 Hb measurements.`;
+    subtitle   = `Drop from Bayesian setpoint \u2265 ${threshold.toFixed(1)} g/dL`;
+    signalDesc = `Latest Hb is \u2265 ${threshold.toFixed(1)} g/dL below the patient\u2019s Bayesian adaptive setpoint ` +
+                 `(conjugate Gaussian model, personalized per patient). Requires \u2265 2 Hb measurements.`;
   }
 
   // ── Ferritin count ───────────────────────────────────────────────────────
@@ -328,9 +328,10 @@ function _pbUpdateInvestigationPanel(flaggedPatients) {
   flaggedPatients.forEach(p => {
     const opt      = document.createElement('option');
     opt.value      = p.id;
-    const hbLabel  = p.latest_hb !== null ? `Hb ${p.latest_hb.toFixed(1)}` : 'no Hb';
-    const dropLabel = p.hb_drop !== null ? ` · drop ${p.hb_drop.toFixed(2)}` : '';
-    opt.textContent = `${p.id.slice(0, 8)}… · age ${p.age} · ${hbLabel}${dropLabel}`;
+    const hbLabel   = p.latest_hb !== null ? `Hb ${p.latest_hb.toFixed(1)}` : 'no Hb';
+    const dropLabel = p.hb_drop   !== null ? ` · ↓${p.hb_drop.toFixed(2)} g/dL` : '';
+    const zLabel    = p.hb_drop_z !== null ? ` (${p.hb_drop_z.toFixed(1)}σ)` : '';
+    opt.textContent = `${p.id.slice(0, 8)}… · age ${p.age} · ${hbLabel}${dropLabel}${zLabel}`;
     sel.appendChild(opt);
   });
 
@@ -356,18 +357,21 @@ function _pbRenderPatientDetail(patient) {
   document.getElementById('pb-pt-detail').style.display = '';
 
   // ── Meta row ─────────────────────────────────────────────────────────────
-  const spText  = patient.setpoint !== null
-    ? `Setpoint ${patient.setpoint.toFixed(2)} g/dL`
+  const spText = patient.setpoint !== null
+    ? `Bayesian setpoint ${patient.setpoint.toFixed(2)} ± ${patient.setpoint_sigma.toFixed(2)} g/dL`
     : 'No setpoint (< 2 readings)';
   const dropText = patient.hb_drop !== null
     ? `Drop ${patient.hb_drop.toFixed(2)} g/dL`
+    : '—';
+  const zText = patient.hb_drop_z !== null
+    ? `${patient.hb_drop_z.toFixed(2)} σ below setpoint`
     : '—';
   document.getElementById('pb-pt-meta').innerHTML =
     `<span>Age ${patient.age}</span>` +
     `<span>Latest Hb <strong>${patient.latest_hb !== null ? patient.latest_hb.toFixed(2) : '—'}</strong> g/dL</span>` +
     `<span>WHO threshold ${patient.who_threshold} g/dL</span>` +
     `<span>${spText}</span>` +
-    `<span>${dropText}</span>` +
+    `<span>Drop <strong>${dropText}</strong> · ${zText}</span>` +
     `<span>${patient.ferritin_tests} ferritin test${patient.ferritin_tests !== 1 ? 's' : ''}</span>`;
 
   // ── Chart ─────────────────────────────────────────────────────────────────
@@ -381,10 +385,10 @@ function _pbRenderPatientChart(patient) {
   if (_pbChart) { _pbChart.destroy(); _pbChart = null; }
 
   const hb      = patient.hb_history;
+  const spHist  = patient.setpoint_history || [];
   const labels  = hb.map(h => h.date);
   const values  = hb.map(h => h.value);
   const thresh  = patient.who_threshold;
-  const sp      = patient.setpoint;
 
   const pointColors = values.map(v => v < thresh ? '#e86464' : '#6ea8d8');
 
@@ -409,20 +413,46 @@ function _pbRenderPatientChart(patient) {
       borderWidth: 1.5,
       pointRadius: 0,
       fill: false,
-      order: 2,
+      order: 3,
     },
   ];
 
-  if (sp !== null) {
+  // Bayesian adaptive setpoint: µ trajectory + ±σ band
+  if (spHist.length === hb.length) {
+    const muVals    = spHist.map(s => s.mu);
+    const upperBand = spHist.map(s => parseFloat((s.mu + s.sigma).toFixed(3)));
+    const lowerBand = spHist.map(s => parseFloat((s.mu - s.sigma).toFixed(3)));
+
+    // Upper σ boundary — fill to the next dataset (lower boundary)
     datasets.push({
-      label: `Setpoint (${sp.toFixed(2)} g/dL)`,
-      data: new Array(labels.length).fill(sp),
-      borderColor: 'rgba(255,185,50,0.65)',
+      label: '_upper',
+      data: upperBand,
+      borderColor: 'transparent',
+      backgroundColor: 'rgba(255,185,50,0.10)',
+      pointRadius: 0,
+      fill: '+1',
+      order: 4,
+    });
+    // Lower σ boundary
+    datasets.push({
+      label: '_lower',
+      data: lowerBand,
+      borderColor: 'transparent',
+      backgroundColor: 'rgba(255,185,50,0.10)',
+      pointRadius: 0,
+      fill: false,
+      order: 4,
+    });
+    // µ trajectory line
+    datasets.push({
+      label: 'Bayesian setpoint (µ)',
+      data: muVals,
+      borderColor: 'rgba(255,185,50,0.85)',
       borderDash: [4, 4],
       borderWidth: 1.5,
       pointRadius: 0,
       fill: false,
-      order: 3,
+      order: 2,
     });
   }
 
@@ -440,9 +470,11 @@ function _pbRenderPatientChart(patient) {
             color: 'var(--text-body)',
             font: { family: 'Karla', size: 12 },
             boxWidth: 20,
+            filter: (item) => !item.text.startsWith('_'),
           },
         },
         tooltip: {
+          filter: (item) => !item.dataset.label.startsWith('_'),
           callbacks: {
             label: (ctx) =>
               `${ctx.dataset.label}: ${typeof ctx.parsed.y === 'number' ? ctx.parsed.y.toFixed(2) : ctx.parsed.y}`,

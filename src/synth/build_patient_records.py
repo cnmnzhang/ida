@@ -8,11 +8,18 @@ For each patient in the filtered cohort (F 18-65, Washington, seed=1, n=5000):
   - latest_hb        : most-recent HB reading (null if none)
   - who_threshold    : WHO cutoff for this patient
   - lab_anemia       : latest_hb < who_threshold
-  - setpoint         : mean of up to 5 readings *preceding* the most-recent one (null if < 2 readings)
-  - hb_drop          : setpoint - latest_hb (positive = dropped; null if setpoint is null)
+  - setpoint         : Bayesian adaptive setpoint at latest reading (null if < 2 readings)
+  - setpoint_sigma   : predictive uncertainty (std) of the Bayesian estimate
+  - hb_drop          : setpoint - latest_hb (positive = dropped; null if no setpoint)
+  - hb_drop_z        : hb_drop / setpoint_sigma (z-score; null if no setpoint)
+  - setpoint_history : [{date, mu, sigma}] Bayesian estimates aligned with hb_history
   - coded_anemia     : has any anemia dx code on record
   - ferritin_tests   : count of ferritin observations
   - conditions       : [{date, code, description}] for ALL conditions (not just anemia)
+
+Setpoint model: conjugate Gaussian Bayesian update (setpoints_runner.py).
+  mu[i] = posterior mean after readings 0..i-1 = predictive mean for reading i
+  A drop from setpoint means the latest HB fell below the model's prediction.
 
 Output: data/synth_runs/{n}_{seed}/patients_{gender}_{min_age}_{max_age}.json
 """
@@ -30,6 +37,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src" / "synth"))
 
 from parse_conditions import ANEMIA_SNOMED  # noqa: E402
+from setpoints_runner import build_sp_df  # noqa: E402
 
 # ── LOINC / WHO constants ─────────────────────────────────────────────────────
 HB_LOINC       = "718-7"
@@ -71,14 +79,6 @@ def _filter_patients(csv_dir: Path, gender: str, min_age: int, max_age: int) -> 
     return pts[mask][["Id", "GENDER", "age"]].rename(columns={"Id": "PATIENT"})
 
 
-def _compute_setpoint(values: list) -> Optional[float]:
-    """Mean of up to 5 readings preceding the last one."""
-    if len(values) < 2:
-        return None
-    preceding = values[:-1][-5:]
-    return float(np.mean(preceding))
-
-
 def build_records(
     csv_dir: Path,
     gender: str = "F",
@@ -102,7 +102,30 @@ def build_records(
     # ferritin count per patient
     fer_counts = fer_obs.groupby("PATIENT").size().to_dict()
 
-    # HB history per patient (sorted)
+    # ── Bayesian adaptive setpoints ───────────────────────────────────────────
+    print("  Computing Bayesian setpoints …")
+    sp_df = build_sp_df(csv_dir, patient_ids=patient_ids, models=["bayesian"])
+
+    # Build per-patient lookup: PATIENT → list of {date, mu, sigma} aligned with HB readings
+    sp_lookup = {}   # {pid: {"history": [{date, mu, sigma}], "latest_mu": float, "latest_sigma": float}}
+    if not sp_df.empty:
+        bayes = sp_df[sp_df["model"] == "bayesian"].sort_values(["PATIENT", "DATE"])
+        for pid, grp in bayes.groupby("PATIENT"):
+            rows = grp.reset_index(drop=True)
+            sp_lookup[pid] = {
+                "history": [
+                    {
+                        "date":  r["DATE"].strftime("%Y-%m-%d") if hasattr(r["DATE"], "strftime") else str(r["DATE"])[:10],
+                        "mu":    round(float(r["mu"]), 3),
+                        "sigma": round(float(r["sigma"]), 3),
+                    }
+                    for _, r in rows.iterrows()
+                ],
+                "latest_mu":    round(float(rows["mu"].iloc[-1]), 3),
+                "latest_sigma": round(float(rows["sigma"].iloc[-1]), 3),
+            }
+
+    # ── HB history per patient (sorted) ──────────────────────────────────────
     hb_by_pt = {}
     for pid, grp in hb_obs.sort_values("DATE").groupby("PATIENT"):
         hb_by_pt[pid] = [
@@ -148,24 +171,37 @@ def build_records(
         hb_hist = hb_by_pt.get(pid, [])
         hb_vals = [h["value"] for h in hb_hist]
 
-        latest_hb = hb_vals[-1] if hb_vals else None
-        setpoint  = _compute_setpoint(hb_vals)
-        hb_drop   = round(setpoint - latest_hb, 3) if (setpoint is not None and latest_hb is not None) else None
+        latest_hb  = hb_vals[-1] if hb_vals else None
         lab_anemia = (latest_hb is not None) and (latest_hb < thresh)
 
+        sp_info         = sp_lookup.get(pid)
+        setpoint        = sp_info["latest_mu"]    if sp_info else None
+        setpoint_sigma  = sp_info["latest_sigma"] if sp_info else None
+        sp_history      = sp_info["history"]      if sp_info else []
+
+        if setpoint is not None and latest_hb is not None:
+            hb_drop   = round(setpoint - latest_hb, 3)
+            hb_drop_z = round(hb_drop / setpoint_sigma, 3) if setpoint_sigma else None
+        else:
+            hb_drop   = None
+            hb_drop_z = None
+
         records.append({
-            "id":            pid,
-            "gender":        gender_val,
-            "age":           round(age, 1),
-            "hb_history":    hb_hist,
-            "latest_hb":     latest_hb,
-            "who_threshold": thresh,
-            "lab_anemia":    lab_anemia,
-            "setpoint":      round(setpoint, 3) if setpoint is not None else None,
-            "hb_drop":       hb_drop,
-            "coded_anemia":  pid in coded_anemia_ids,
-            "ferritin_tests": fer_counts.get(pid, 0),
-            "conditions":    cond_by_pt.get(pid, []),
+            "id":               pid,
+            "gender":           gender_val,
+            "age":              round(age, 1),
+            "hb_history":       hb_hist,
+            "setpoint_history": sp_history,
+            "latest_hb":        latest_hb,
+            "who_threshold":    thresh,
+            "lab_anemia":       lab_anemia,
+            "setpoint":         setpoint,
+            "setpoint_sigma":   setpoint_sigma,
+            "hb_drop":          hb_drop,
+            "hb_drop_z":        hb_drop_z,
+            "coded_anemia":     pid in coded_anemia_ids,
+            "ferritin_tests":   fer_counts.get(pid, 0),
+            "conditions":       cond_by_pt.get(pid, []),
         })
 
     return records
