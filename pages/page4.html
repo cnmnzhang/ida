@@ -1,0 +1,190 @@
+  <div class="page-header">
+    <div class="page-header-eyebrow">Surveillance · Synthetic Cohort · Washington · F 18–65</div>
+    <h1>Surveillance Policy Builder<br><em>Anemia Detection Gap Analysis</em></h1>
+    <p>
+      Define a surveillance policy on a pre-computed synthetic cohort (Synthea, Washington,
+      female patients aged 18–65). The builder translates cohort-level signals into a flagged
+      patient count and expected clinical action. The
+      <strong>diagnostic gap</strong> — lab-defined anemia without coded anemia — is surfaced
+      throughout as a reference signal.
+    </p>
+  </div>
+
+  <!-- Loading state (visible until JSON resolves) -->
+  <div id="pb-loading" class="pb-loading-msg">
+    <span class="pb-loading-dot"></span> Loading cohort data&hellip;
+  </div>
+
+  <!-- Error state -->
+  <div id="pb-error" class="card" style="display:none;">
+    <div class="card-title" style="color:var(--accent-red);">Unable to load cohort</div>
+    <div id="pb-error-msg" style="font-size:0.82rem; color:var(--text-body); margin-top:8px; line-height:1.7;"></div>
+  </div>
+
+  <!-- ── Main content (hidden until JSON loads) ──────────────────────── -->
+  <div id="pb-content" style="display:none;">
+
+    <!-- 1. Cohort context strip -->
+    <div class="pb-context card" style="margin-bottom:20px;" role="region" aria-label="Cohort metadata">
+      <div id="pb-context-inner"></div>
+    </div>
+
+    <!-- 2. Signal overview tiles -->
+    <div class="pb-tiles" style="margin-bottom:24px;" role="region" aria-label="Signal overview">
+      <div class="pb-tile pb-tile--lab">
+        <div class="pb-tile-val" id="pb-t-lab-val">—</div>
+        <div class="pb-tile-pct" id="pb-t-lab-pct"></div>
+        <div class="pb-tile-label">Lab-defined anemia (WHO)</div>
+        <div class="pb-tile-desc">
+          Most-recent Hb below the WHO sex-specific threshold
+          (female: &lt;12.0 g/dL). Applied to the most recent measurement per patient.
+        </div>
+      </div>
+      <div class="pb-tile pb-tile--coded">
+        <div class="pb-tile-val" id="pb-t-coded-val">—</div>
+        <div class="pb-tile-pct" id="pb-t-coded-pct"></div>
+        <div class="pb-tile-label">Coded anemia</div>
+        <div class="pb-tile-desc">
+          Patients with an anemia diagnosis code on record (SNOMED 271737000 or equivalent).
+          Codes may persist after Hb normalizes.
+        </div>
+      </div>
+      <div class="pb-tile pb-tile--gap">
+        <div class="pb-tile-val" id="pb-t-gap-val">—</div>
+        <div class="pb-tile-pct" id="pb-t-gap-pct"></div>
+        <div class="pb-tile-label">Diagnostic gap</div>
+        <div class="pb-tile-desc">
+          Lab-defined anemia <em>without</em> any coded anemia diagnosis — the core
+          underdiagnosis signal targeted by this tool.
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 + 4. Builder (left) + Output (right) -->
+    <div class="pb-main-grid" style="margin-bottom:24px;">
+
+      <!-- ── Policy Builder ──────────────────────────────────────── -->
+      <section class="card pb-builder" aria-label="Policy configuration">
+        <div class="card-title">Policy Builder</div>
+        <div class="card-sub">Patient-level mode &middot; 1,674 records loaded</div>
+
+        <!-- A. Trigger -->
+        <div class="pb-step">
+          <div class="pb-step-label">A &mdash; Policy trigger</div>
+          <label for="pb-trigger" class="pb-field-label">Flag patients who have</label>
+          <select id="pb-trigger" class="pb-select" aria-label="Policy trigger">
+            <option value="lab">Lab-defined anemia (WHO)</option>
+            <option value="coded">Coded anemia</option>
+            <option value="gap">Diagnostic gap only (lab anemia without coded anemia)</option>
+            <option value="setpoint">Drop from personal baseline &ge; threshold</option>
+          </select>
+          <div id="pb-setpoint-row" class="pb-setpoint-row" style="display:none;">
+            <div class="pb-setpoint-header">
+              <label class="pb-field-label" style="margin:0;">Drop threshold</label>
+              <span class="pb-setpoint-val"><span id="pb-setpoint-val-num">1.0</span> g/dL</span>
+            </div>
+            <input type="range" id="pb-setpoint-thresh" class="pb-setpoint-slider"
+              min="0.5" max="3.0" step="0.5" value="1.0"
+              aria-label="Setpoint drop threshold in g/dL">
+            <div class="pb-setpoint-ticks" aria-hidden="true">
+              <span>0.5</span><span>1.0</span><span>1.5</span><span>2.0</span><span>2.5</span><span>3.0</span>
+            </div>
+            <div class="pb-excl-coded-note" style="display:block; margin-top:6px;">
+              Flags patients whose latest Hb is &ge; threshold below their personal mean baseline
+              (up to 5 preceding readings). Requires &ge; 2 Hb measurements.
+            </div>
+          </div>
+        </div>
+
+        <!-- B. Exclusions -->
+        <div class="pb-step">
+          <div class="pb-step-label">B &mdash; Exclusions</div>
+
+          <div class="pb-checkbox-row">
+            <label>
+              <input type="checkbox" id="pb-excl-deceased" checked disabled>
+              Exclude deceased patients
+            </label>
+            <div class="pb-unavail">Pre-applied — all patients in cohort are alive</div>
+          </div>
+
+          <div class="pb-checkbox-row">
+            <label>
+              <input type="checkbox" id="pb-excl-hb-min">
+              Require &ge; 2 Hb measurements
+            </label>
+          </div>
+
+          <div class="pb-checkbox-row" id="pb-excl-coded-row">
+            <label>
+              <input type="checkbox" id="pb-excl-coded">
+              Exclude patients with coded anemia
+            </label>
+            <div class="pb-excl-coded-note" id="pb-excl-coded-note" style="display:none;"></div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ── Output Panel ─────────────────────────────────────────── -->
+      <section class="card pb-output" aria-label="Policy output" aria-live="polite">
+        <div class="card-title">Output</div>
+        <div class="card-sub" id="pb-out-subtitle">&mdash;</div>
+
+        <!-- Flagged count (hero) -->
+        <div class="pb-out-flagged">
+          <div class="pb-out-big" id="pb-out-count">&mdash;</div>
+          <div class="pb-out-big-label">flagged patients</div>
+          <div class="pb-out-pct" id="pb-out-pct"></div>
+        </div>
+
+        <!-- Detail rows -->
+        <div class="pb-out-rows">
+          <div class="pb-out-row">
+            <div class="pb-out-row-label">Signal</div>
+            <div id="pb-out-signal">&mdash;</div>
+          </div>
+          <div class="pb-out-row">
+            <div class="pb-out-row-label">Ferritin tests</div>
+            <div id="pb-out-ferritin">&mdash;</div>
+          </div>
+        </div>
+
+        <!-- Diagnostic gap (always visible) -->
+        <div class="pb-gap-context" id="pb-gap-context">
+          <div class="pb-gap-context-label">Diagnostic gap &mdash; contextual reference</div>
+          <div id="pb-gap-context-val"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 5. Investigation panel -->
+    <section class="card pb-investigate" style="margin-bottom:24px;" aria-label="Patient investigation">
+      <div class="card-title">Investigate a Flagged Patient</div>
+      <div class="card-sub">HB history and conditions for any patient flagged by the current policy</div>
+
+      <div style="margin-top:16px;">
+        <label for="pb-pt-select" class="pb-field-label">Flagged patient</label>
+        <select id="pb-pt-select" class="pb-select" aria-label="Select flagged patient">
+          <option value="">— run policy to populate list —</option>
+        </select>
+      </div>
+
+      <div id="pb-pt-empty" class="pb-pt-empty">No patient selected.</div>
+
+      <div id="pb-pt-detail" style="display:none;">
+        <div id="pb-pt-meta" class="pb-pt-meta"></div>
+        <div class="pb-pt-chart-wrap">
+          <canvas id="pb-pt-chart"></canvas>
+        </div>
+        <div id="pb-pt-conditions-wrap"></div>
+      </div>
+    </section>
+
+    <!-- 6. Disclaimers / sanity checks -->
+    <section class="card pb-disclaimers" aria-label="Data quality notes" style="margin-bottom:8px;">
+      <div class="card-title">Data Quality Notes</div>
+      <ul id="pb-disclaimer-list" class="pb-disclaimer-list"></ul>
+    </section>
+
+  </div>

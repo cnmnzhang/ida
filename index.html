@@ -36,6 +36,9 @@
       <button class="nav-tab" onclick="showPage(3)">
         <span class="nav-tab-num">3</span>Post-2009 Stagnation
       </button>
+      <button class="nav-tab" onclick="showPage(4)">
+        <span class="nav-tab-num">4</span>Policy Builder
+      </button>
     </div>
   </nav>
 
@@ -50,21 +53,25 @@
   <div id="page-1" class="page active"></div>
   <div id="page-2" class="page"></div>
   <div id="page-3" class="page"></div>
+  <div id="page-4" class="page"></div>
 
   <!-- Nav + Citations (no DOM dependencies) -->
   <script src="scripts/nav.js"></script>
   <script src="scripts/citations.js"></script>
+  <script src="scripts/policy_builder.js"></script>
 
   <!-- Load page HTML, then initialize charts + citations -->
   <script>
     Promise.all([
       fetch('pages/page1.html').then(r => r.text()),
       fetch('pages/page2.html').then(r => r.text()),
-      fetch('pages/page3.html').then(r => r.text())
-    ]).then(([p1, p2, p3]) => {
+      fetch('pages/page3.html').then(r => r.text()),
+      fetch('pages/page4.html').then(r => r.text())
+    ]).then(([p1, p2, p3, p4]) => {
       document.getElementById('page-1').innerHTML = p1;
       document.getElementById('page-2').innerHTML = p2;
       document.getElementById('page-3').innerHTML = p3;
+      document.getElementById('page-4').innerHTML = p4;
 
       // Load chart scripts sequentially (they share globals and need DOM ready)
       function loadScript(src) {
