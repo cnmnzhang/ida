@@ -9,8 +9,8 @@
   --border:       #1e2d45;
   --border-light: #253550;
   --text-primary: #e8edf5;
-  --text-body:    #8fa3bf;
-  --text-muted:   #4a6080;
+  --text-body:    #afc4d8;
+  --text-muted:   #637f9a;
   --accent-amber: #f59e0b;
   --accent-pink:  #f472b6;
   --accent-blue:  #38bdf8;
@@ -27,12 +27,14 @@
 /* === RESET & BASE ========================================== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { font-size: 17px; }
+
 body {
   font-family: var(--font-body);
   background: var(--bg);
   color: var(--text-primary);
   min-height: 100vh;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 /* === NAVIGATION ============================================
@@ -74,9 +76,8 @@ nav {
 }
 
 .nav-brand-sub {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
-  font-family: var(--font-mono);
   margin-top: -2px;
 }
 
@@ -118,8 +119,7 @@ nav {
   justify-content: center;
   width: 16px; height: 16px;
   border-radius: 50%;
-  font-size: 0.6rem;
-  font-family: var(--font-mono);
+  font-size: 0.65rem;
   background: rgba(255,255,255,0.12);
   margin-right: 5px;
 }
@@ -149,10 +149,10 @@ nav {
 }
 
 .page-header-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--accent-amber);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   margin-bottom: 8px;
 }
@@ -166,10 +166,10 @@ nav {
 }
 
 .page-header p {
-  font-size: 0.88rem;
+  font-size: 0.94rem;
   color: var(--text-body);
   max-width: 680px;
-  line-height: 1.7;
+  line-height: 1.75;
 }
 
 /* === CARDS ================================================= */
@@ -182,28 +182,27 @@ nav {
 
 .card-title {
   font-family: var(--font-body);
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
 .card-sub {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  font-family: var(--font-mono);
   margin-bottom: 16px;
 }
 
 .chart-wrap { position: relative; }
 
 .card-note {
-  font-size: 0.73rem;
+  font-size: 0.80rem;
   color: var(--text-muted);
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 /* === GRID LAYOUTS ========================================== */
@@ -244,16 +243,16 @@ nav {
 }
 
 .kpi-lbl {
-  font-size: 0.71rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 /* === INLINE PROSE ========================================== */
 .prose {
-  font-size: 0.87rem;
+  font-size: 0.94rem;
   color: var(--text-body);
-  line-height: 1.8;
+  line-height: 1.82;
   margin-bottom: 28px;
   max-width: 740px;
 }
@@ -275,15 +274,15 @@ nav {
 }
 
 .infobox h2 {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 700;
   margin-bottom: 8px;
 }
 
 .infobox p {
-  font-size: 0.8rem;
+  font-size: 0.87rem;
   color: var(--text-body);
-  line-height: 1.7;
+  line-height: 1.75;
 }
 
 /* === DRIVER CARDS (page 3) ================================= */
@@ -309,8 +308,8 @@ nav {
   margin-bottom: 4px;
 }
 
-.driver h3 { font-size: 0.82rem; font-weight: 700; margin-bottom: 8px; }
-.driver p  { font-size: 0.77rem; color: var(--text-body); line-height: 1.6; }
+.driver h3 { font-size: 0.88rem; font-weight: 700; margin-bottom: 8px; }
+.driver p  { font-size: 0.83rem; color: var(--text-body); line-height: 1.65; }
 
 .d1 { background:#12081e; border-color:#5b21b6; }
 .d1 .driver-stat, .d1 h3 { color: var(--accent-purple); }
@@ -343,8 +342,8 @@ nav {
 
 .mech-item { display: flex; gap: 12px; align-items: flex-start; }
 .mech-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 2px; }
-.mech-text h4 { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-.mech-text p  { font-size: 0.75rem; color: var(--text-muted); line-height: 1.55; }
+.mech-text h4 { font-size: 0.87rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.mech-text p  { font-size: 0.81rem; color: var(--text-muted); line-height: 1.65; }
 
 /* === SOURCES FOOTER ======================================== */
 .sources-footer {
@@ -356,8 +355,7 @@ nav {
 }
 
 .sources-footer summary {
-  font-size: 0.75rem;
-  font-family: var(--font-mono);
+  font-size: 0.80rem;
   color: var(--text-muted);
   cursor: pointer;
   user-select: none;
@@ -382,9 +380,9 @@ nav {
 }
 
 .source-item {
-  font-size: 0.73rem;
+  font-size: 0.80rem;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
   padding-left: 12px;
   border-left: 2px solid var(--border-light);
 }
@@ -412,8 +410,7 @@ nav {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: var(--text-muted);
   padding: 20px 0;
 }
@@ -449,16 +446,15 @@ nav {
 }
 
 .pb-context-key {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.05em;
 }
 
 .pb-context-val {
-  font-family: var(--font-mono);
-  font-size: 0.83rem;
+  font-size: 0.88rem;
   color: var(--text-primary);
 }
 
@@ -515,14 +511,13 @@ nav {
 .pb-tile--gap   .pb-tile-val { color: var(--accent-pink); }
 
 .pb-tile-pct {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
   margin-bottom: 8px;
 }
 
 .pb-tile-label {
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   font-weight: 700;
   margin-bottom: 8px;
 }
@@ -532,9 +527,9 @@ nav {
 .pb-tile--gap   .pb-tile-label { color: var(--accent-pink); }
 
 .pb-tile-desc {
-  font-size: 0.73rem;
+  font-size: 0.80rem;
   color: var(--text-muted);
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 /* Main two-column grid: builder (left) + output (right) */
@@ -555,17 +550,17 @@ nav {
 }
 
 .pb-step-label {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
+  font-size: 0.70rem;
+  font-weight: 700;
   color: var(--accent-amber);
-  letter-spacing: 0.11em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   margin-bottom: 12px;
 }
 
 .pb-field-label {
   display: block;
-  font-size: 0.79rem;
+  font-size: 0.86rem;
   color: var(--text-body);
   margin-bottom: 6px;
 }
@@ -576,8 +571,8 @@ nav {
   border: 1px solid var(--border-light);
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: 0.82rem;
-  padding: 8px 28px 8px 10px;
+  font-size: 0.88rem;
+  padding: 9px 28px 9px 10px;
   border-radius: 7px;
   cursor: pointer;
   appearance: none;
@@ -598,7 +593,7 @@ nav {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: var(--text-body);
   cursor: pointer;
 }
@@ -613,19 +608,18 @@ nav {
 .pb-checkbox-row input[type="checkbox"]:disabled { cursor: default; }
 
 .pb-unavail {
-  font-size: 0.69rem;
-  font-family: var(--font-mono);
+  font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 3px;
   margin-left: 22px;
 }
 
 .pb-excl-coded-note {
-  font-size: 0.69rem;
-  font-family: var(--font-mono);
+  font-size: 0.75rem;
   color: var(--accent-amber);
   margin-top: 3px;
   margin-left: 22px;
+  line-height: 1.6;
 }
 
 .pb-textarea {
@@ -662,17 +656,16 @@ nav {
 }
 
 .pb-out-big-label {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.04em;
   margin-top: 5px;
 }
 
 .pb-out-pct {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: 0.87rem;
   color: var(--text-body);
   margin-top: 6px;
 }
@@ -681,20 +674,20 @@ nav {
 
 .pb-out-row {
   display: grid;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: 110px 1fr;
   gap: 10px;
-  padding: 9px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
-  font-size: 0.81rem;
+  font-size: 0.86rem;
   align-items: baseline;
 }
 
 .pb-out-row-label {
-  font-family: var(--font-mono);
-  font-size: 0.63rem;
+  font-size: 0.70rem;
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   padding-top: 2px;
 }
 
@@ -708,18 +701,18 @@ nav {
 }
 
 .pb-gap-context-label {
-  font-family: var(--font-mono);
-  font-size: 0.63rem;
+  font-size: 0.70rem;
+  font-weight: 700;
   color: var(--accent-pink);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.05em;
   margin-bottom: 6px;
 }
 
 #pb-gap-context-val {
-  font-size: 0.79rem;
+  font-size: 0.86rem;
   color: var(--text-body);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 /* Disclaimers */
@@ -734,11 +727,11 @@ nav {
 }
 
 .pb-disclaimer-list li {
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   color: var(--text-body);
   padding: 0 0 0 14px;
   border-left: 2px solid var(--border-light);
-  line-height: 1.65;
+  line-height: 1.7;
 }
 
 .pb-disclaimer-list li.pb-warn {
@@ -804,8 +797,7 @@ nav {
   display: flex;
   justify-content: space-between;
   margin-top: 5px;
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.73rem;
   color: var(--text-muted);
 }
 
@@ -813,13 +805,13 @@ nav {
 
 .pb-investigate .card-sub {
   margin-top: 2px;
-  font-size: 0.78rem;
+  font-size: 0.80rem;
   color: var(--text-muted);
 }
 
 .pb-pt-empty {
   margin-top: 20px;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   color: var(--text-muted);
   font-style: italic;
 }
@@ -829,8 +821,7 @@ nav {
   flex-wrap: wrap;
   gap: 6px 18px;
   margin-top: 16px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.84rem;
   color: var(--text-muted);
   padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
@@ -847,10 +838,10 @@ nav {
 }
 
 .pb-pt-cond-title {
-  font-family: var(--font-mono);
-  font-size: 0.63rem;
+  font-size: 0.70rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
   margin: 22px 0 8px;
 }
@@ -858,14 +849,14 @@ nav {
 .pb-pt-cond-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  font-size: 0.84rem;
 }
 
 .pb-pt-cond-table th {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
   text-align: left;
   padding: 4px 8px 6px 0;
@@ -881,8 +872,7 @@ nav {
 }
 
 .pb-pt-cond-date {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.80rem;
   white-space: nowrap;
   color: var(--text-muted);
 }
