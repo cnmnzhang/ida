@@ -890,3 +890,131 @@ nav {
   margin-top: 16px;
   font-style: italic;
 }
+
+/* ── Ferritin heatmap ─────────────────────────────────────────────────────── */
+
+.pb-heatmap-wrap { margin-top: 18px; }
+
+.pb-heatmap-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.pb-hm-ylabel {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  align-self: center;
+  margin-right: 4px;
+}
+
+.pb-hm-table-wrap { flex: 1; min-width: 0; }
+
+.pb-hm-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.pb-hm-clabel {
+  font-size: 0.70rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: 0 4px 8px;
+}
+
+.pb-hm-rlabel {
+  font-size: 0.70rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  padding-right: 10px;
+  width: 72px;
+}
+
+.pb-hm-cell {
+  height: 48px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px;
+  vertical-align: middle;
+  transition: background 0.2s;
+}
+
+.pb-hm-rate {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.pb-hm-n {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.pb-hm-suppressed {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.pb-hm-xlabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.pb-hm-legend {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding-top: 28px;
+}
+
+.pb-hm-legend-bar {
+  width: 14px;
+  height: 140px;
+  border-radius: 4px;
+  background: linear-gradient(to top,
+    rgba(56,189,248,0.08) 0%,
+    rgba(56,189,248,1.00) 100%);
+  border: 1px solid var(--border-light);
+}
+
+.pb-hm-legend-label {
+  font-size: 0.70rem;
+  color: var(--text-muted);
+}
+
+.pb-hm-legend-desc {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  margin-top: 6px;
+  letter-spacing: 0.03em;
+}

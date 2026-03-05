@@ -183,7 +183,21 @@
       </div>
     </section>
 
-    <!-- 6. Disclaimers / sanity checks -->
+    <!-- 6. Ferritin heatmap -->
+    <section class="card pb-ferritin-heatmap" aria-label="Ferritin test rate heatmap" style="margin-bottom:24px;">
+      <div class="card-title">Ferritin Testing Rate by HB &times; Setpoint Drop</div>
+      <div class="card-sub">P(ferritin ordered) &mdash; fraction of patients in each cell with &ge;1 ferritin test recorded</div>
+      <div id="pb-heatmap-wrap" class="pb-heatmap-wrap"></div>
+      <p class="card-note" style="margin-top:14px;">
+        <strong>Synthetic data note.</strong> Synthea floors ferritin at 30.1&thinsp;&micro;g/L in all patients, so
+        P(ferritin &lt; 30) = 0 across every cell. The metric shown here — whether a ferritin test was
+        <em>ordered at all</em> — reflects simulated clinical suspicion patterns and serves as a placeholder
+        for the true iron-deficiency confirmation rate that would appear in real EHR data.
+        Only 36 of 1,674 patients have any ferritin test recorded; cells with &lt;5 patients are suppressed.
+      </p>
+    </section>
+
+    <!-- 7. Disclaimers / sanity checks -->
     <section class="card pb-disclaimers" aria-label="Data quality notes" style="margin-bottom:8px;">
       <div class="card-title">Data Quality Notes</div>
       <ul id="pb-disclaimer-list" class="pb-disclaimer-list"></ul>

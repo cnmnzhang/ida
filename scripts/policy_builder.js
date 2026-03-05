@@ -40,6 +40,7 @@ function initPolicyBuilder() {
     _pbRenderContext(cohort);
     _pbRenderSignals(cohort);
     _pbRenderDisclaimers(cohort);
+    _pbRenderFerritinHeatmap(patients);
     _pbWireListeners();
     _pbSyncExclusionState();
     _pbSyncSetpointSlider();
@@ -525,5 +526,107 @@ function _pbRenderConditionsTable(patient) {
       </thead>
       <tbody>${rows}</tbody>
     </table>
+  `;
+}
+
+// ── Ferritin heatmap ──────────────────────────────────────────────────────────
+
+function _pbRenderFerritinHeatmap(patients) {
+  const wrap = document.getElementById('pb-heatmap-wrap');
+  if (!wrap) return;
+
+  // Bin definitions
+  const hbBins   = [
+    { label: '<10',    min: -Infinity, max: 10   },
+    { label: '10–11',  min: 10,        max: 11   },
+    { label: '11–12',  min: 11,        max: 12   },
+    { label: '12–13',  min: 12,        max: 13   },
+    { label: '≥13',    min: 13,        max: Infinity },
+  ];
+  const dropBins = [
+    { label: '≥2.0',   min: 2.0,       max: Infinity },
+    { label: '1.5–2',  min: 1.5,       max: 2.0  },
+    { label: '1.0–1.5',min: 1.0,       max: 1.5  },
+    { label: '0.5–1',  min: 0.5,       max: 1.0  },
+    { label: '<0.5',   min: -Infinity, max: 0.5  },
+  ];
+
+  const MIN_CELL = 5;  // suppress cells with fewer patients
+
+  // Build cell counts
+  const counts = dropBins.map(() => hbBins.map(() => ({ n: 0, fer: 0 })));
+  for (const p of patients) {
+    if (p.latest_hb == null) continue;
+    const drop = p.hb_drop ?? 0;
+    const hb   = p.latest_hb;
+    const hasFer = (p.ferritin_tests || 0) > 0;
+
+    const xi = hbBins.findIndex(b => hb >= b.min && hb < b.max);
+    const yi = dropBins.findIndex(b => drop >= b.min && drop < b.max);
+    if (xi < 0 || yi < 0) continue;
+
+    counts[yi][xi].n++;
+    if (hasFer) counts[yi][xi].fer++;
+  }
+
+  // Colour scale: 0 = transparent, 1 = accent-blue full
+  // Parse CSS variable via computed style isn't trivial; use hardcoded palette
+  const palette = [
+    'rgba(56,189,248,0.08)',   // 0–5%
+    'rgba(56,189,248,0.20)',   // 5–15%
+    'rgba(56,189,248,0.38)',   // 15–30%
+    'rgba(56,189,248,0.58)',   // 30–50%
+    'rgba(56,189,248,0.82)',   // 50–75%
+    'rgba(56,189,248,1.00)',   // >75%
+  ];
+  function rateToColor(rate) {
+    if (rate < 0.05) return palette[0];
+    if (rate < 0.15) return palette[1];
+    if (rate < 0.30) return palette[2];
+    if (rate < 0.50) return palette[3];
+    if (rate < 0.75) return palette[4];
+    return palette[5];
+  }
+
+  // Render as HTML table (no canvas dep needed)
+  const cellW = 90;
+  const cellH = 44;
+
+  let rows = '';
+  dropBins.forEach((db, yi) => {
+    let cells = `<td class="pb-hm-rlabel">${db.label}</td>`;
+    hbBins.forEach((hb, xi) => {
+      const cell = counts[yi][xi];
+      const suppressed = cell.n < MIN_CELL;
+      const rate = suppressed ? null : cell.fer / cell.n;
+      const bg   = suppressed ? 'rgba(255,255,255,0.03)' : rateToColor(rate);
+      const txt  = suppressed
+        ? `<span class="pb-hm-suppressed">n&lt;${MIN_CELL}</span>`
+        : `<span class="pb-hm-rate">${(rate * 100).toFixed(0)}%</span>
+           <span class="pb-hm-n">${cell.fer}/${cell.n}</span>`;
+      cells += `<td class="pb-hm-cell" style="background:${bg};">${txt}</td>`;
+    });
+    rows += `<tr>${cells}</tr>`;
+  });
+
+  const headerCells = hbBins.map(b => `<th class="pb-hm-clabel">Hb ${b.label}</th>`).join('');
+
+  wrap.innerHTML = `
+    <div class="pb-heatmap-inner">
+      <div class="pb-hm-ylabel">← Hb drop from setpoint (g/dL)</div>
+      <div class="pb-hm-table-wrap">
+        <table class="pb-hm-table">
+          <thead><tr><td></td>${headerCells}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="pb-hm-xlabel">Latest Hb (g/dL) →</div>
+      </div>
+      <div class="pb-hm-legend">
+        <span class="pb-hm-legend-label">0%</span>
+        <div class="pb-hm-legend-bar"></div>
+        <span class="pb-hm-legend-label">100%</span>
+        <span class="pb-hm-legend-desc">P(ferritin ordered)</span>
+      </div>
+    </div>
   `;
 }
