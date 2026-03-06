@@ -55,8 +55,12 @@ function _pbGetConfig() {
     PB_DEFAULTS.maxAge
   );
   const staticBase = cfg.staticBasePath || `data/synth_runs/${nPatients}_${seed}`;
-  const cohortPath = cfg.cohortPath || `${staticBase}/cohort_summary_${gender}_${minAge}_${maxAge}.json`;
-  const patientsPath = cfg.patientsPath || `${staticBase}/patients_${gender}_${minAge}_${maxAge}.json`;
+  const cohortPath = _pbGetSearchParam('pb_cohort_path')
+    || cfg.cohortPath
+    || `${staticBase}/cohort_summary_${gender}_${minAge}_${maxAge}.json`;
+  const patientsPath = _pbGetSearchParam('pb_patients_path')
+    || cfg.patientsPath
+    || `${staticBase}/patients_${gender}_${minAge}_${maxAge}.json`;
 
   const apiFromQuery = _pbGetSearchParam('pb_api_base') || '';
   const apiBaseRaw = (apiFromQuery || cfg.apiBase || globalApiBase || '').trim();

@@ -37,6 +37,7 @@ Open:
 - Static mode: `http://localhost:8080/?pb_source=static`
 - Auto mode (default): `http://localhost:8080/`
 - Override run/filter in URL (optional): add `pb_n`, `pb_seed`, `pb_gender`, `pb_min_age`, `pb_max_age`
+- Override static JSON paths (optional): add `pb_cohort_path`, `pb_patients_path`
 
 ## What changed for Policy Builder
 
@@ -90,6 +91,19 @@ curl -X POST "http://localhost:8000/v1/policy-builder/precompute?n_patients=1000
 Then open:
 
 - `http://localhost:8080/?pb_source=api&pb_api_base=http://localhost:8000&pb_n=1000000&pb_seed=1&pb_gender=F&pb_min_age=18&pb_max_age=65`
+
+If you only want a lightweight static demo, generate and use a 20-patient representative sample:
+
+```bash
+python src/synth/sample_patients.py \
+  --input data/synth_runs/1000000_1/patients_F_18_65.json \
+  --output data/synth_runs/1000000_1/patients_F_18_65_sample20.json \
+  --n 20 --seed 1
+```
+
+Open static sample mode:
+
+- `http://localhost:8080/?pb_source=static&pb_cohort_path=data/synth_runs/1000000_1/cohort_summary_F_18_65.json&pb_patients_path=data/synth_runs/1000000_1/patients_F_18_65_sample20.json`
 
 Note: Synthea may generate fewer than requested (`patients_generated` can be less than `--n`), which is expected.
 
