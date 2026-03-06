@@ -35,11 +35,25 @@ function _pbGetConfig() {
   const cfg = (window.IDA_CONFIG && window.IDA_CONFIG.policyBuilder) || {};
   const globalApiBase = (window.IDA_CONFIG && window.IDA_CONFIG.apiBase) || window.IDA_API_BASE || '';
 
-  const nPatients = _pbNum(cfg.nPatients, PB_DEFAULTS.nPatients);
-  const seed      = _pbNum(cfg.seed, PB_DEFAULTS.seed);
-  const gender    = (cfg.gender || PB_DEFAULTS.gender).toUpperCase();
-  const minAge    = _pbNum(cfg.minAge, PB_DEFAULTS.minAge);
-  const maxAge    = _pbNum(cfg.maxAge, PB_DEFAULTS.maxAge);
+  const nPatients = _pbNum(
+    _pbGetSearchParam('pb_n') ?? cfg.nPatients,
+    PB_DEFAULTS.nPatients
+  );
+  const seed = _pbNum(
+    _pbGetSearchParam('pb_seed') ?? cfg.seed,
+    PB_DEFAULTS.seed
+  );
+  const gender = (
+    (_pbGetSearchParam('pb_gender') || cfg.gender || PB_DEFAULTS.gender)
+  ).toUpperCase();
+  const minAge = _pbNum(
+    _pbGetSearchParam('pb_min_age') ?? cfg.minAge,
+    PB_DEFAULTS.minAge
+  );
+  const maxAge = _pbNum(
+    _pbGetSearchParam('pb_max_age') ?? cfg.maxAge,
+    PB_DEFAULTS.maxAge
+  );
   const staticBase = cfg.staticBasePath || `data/synth_runs/${nPatients}_${seed}`;
   const cohortPath = cfg.cohortPath || `${staticBase}/cohort_summary_${gender}_${minAge}_${maxAge}.json`;
   const patientsPath = cfg.patientsPath || `${staticBase}/patients_${gender}_${minAge}_${maxAge}.json`;

@@ -48,33 +48,61 @@ def parse_conditions(csv_dir: Path, patient_ids: Optional[set] = None) -> dict:
 
     patient_ids: if provided, restrict analysis to this set of patient UUIDs.
     """
-    df = load_conditions(csv_dir)
-    if patient_ids is not None:
-        df = df[df["PATIENT"].isin(patient_ids)]
+    anemia_patient_ids = set()
+    ida_patient_ids = set()
+    # key: (CODE, DESCRIPTION) -> set(PATIENT) for unique patient counts
+    observed_map = {}
 
-    # ── IDA match ─────────────────────────────────────────────────────────────
-    ida_code  = df["CODE"].isin(IDA_SNOMED)
-    ida_desc  = df["DESCRIPTION"].str.contains("iron deficiency", case=False)
-    ida_rows  = df[ida_code | ida_desc]
+    cols = ["PATIENT", "CODE", "DESCRIPTION"]
+    for chunk in pd.read_csv(csv_dir / "conditions.csv", low_memory=False, usecols=cols, chunksize=250_000):
+        chunk["CODE"] = chunk["CODE"].astype(str).str.strip()
+        chunk["DESCRIPTION"] = chunk["DESCRIPTION"].fillna("").str.strip()
 
-    # ── Anemia match (superset) ───────────────────────────────────────────────
-    anemia_code = df["CODE"].isin(ANEMIA_SNOMED)
-    anemia_desc = df["DESCRIPTION"].str.contains(r"\banemia\b", case=False, regex=True)
-    anemia_rows = df[anemia_code | anemia_desc]
+        if patient_ids is not None:
+            chunk = chunk[chunk["PATIENT"].isin(patient_ids)]
+        if chunk.empty:
+            continue
 
-    # ── Observed anemia-related codes inventory ───────────────────────────────
-    observed_codes = (
-        anemia_rows
-        .groupby(["CODE", "DESCRIPTION"])["PATIENT"]
-        .nunique()
-        .reset_index()
-        .rename(columns={"PATIENT": "patient_count"})
-        .sort_values("patient_count", ascending=False)
-        .reset_index(drop=True)
-    )
+        # ── IDA match ─────────────────────────────────────────────────────────
+        ida_code = chunk["CODE"].isin(IDA_SNOMED)
+        ida_desc = chunk["DESCRIPTION"].str.contains("iron deficiency", case=False)
+        ida_rows = chunk[ida_code | ida_desc]
+        if not ida_rows.empty:
+            ida_patient_ids.update(ida_rows["PATIENT"].dropna().tolist())
+
+        # ── Anemia match (superset) ───────────────────────────────────────────
+        anemia_code = chunk["CODE"].isin(ANEMIA_SNOMED)
+        anemia_desc = chunk["DESCRIPTION"].str.contains(r"\banemia\b", case=False, regex=True)
+        anemia_rows = chunk[anemia_code | anemia_desc][["PATIENT", "CODE", "DESCRIPTION"]]
+        if anemia_rows.empty:
+            continue
+
+        anemia_rows = anemia_rows.dropna(subset=["PATIENT"])
+        anemia_patient_ids.update(anemia_rows["PATIENT"].tolist())
+
+        # Count distinct patients per (CODE, DESCRIPTION)
+        dedup = anemia_rows.drop_duplicates(subset=["PATIENT", "CODE", "DESCRIPTION"])
+        for (code, desc), grp in dedup.groupby(["CODE", "DESCRIPTION"]):
+            key = (str(code), str(desc))
+            if key not in observed_map:
+                observed_map[key] = set()
+            observed_map[key].update(grp["PATIENT"].tolist())
+
+    rows = [
+        {"CODE": code, "DESCRIPTION": desc, "patient_count": len(pids)}
+        for (code, desc), pids in observed_map.items()
+    ]
+    if rows:
+        observed_codes = (
+            pd.DataFrame(rows)
+            .sort_values("patient_count", ascending=False)
+            .reset_index(drop=True)
+        )
+    else:
+        observed_codes = pd.DataFrame(columns=["CODE", "DESCRIPTION", "patient_count"])
 
     return {
-        "anemia_patient_ids": set(anemia_rows["PATIENT"].dropna()),
-        "ida_patient_ids":    set(ida_rows["PATIENT"].dropna()),
-        "observed_codes":     observed_codes,
+        "anemia_patient_ids": anemia_patient_ids,
+        "ida_patient_ids": ida_patient_ids,
+        "observed_codes": observed_codes,
     }

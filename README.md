@@ -36,6 +36,7 @@ Open:
 - API mode (preferred): `http://localhost:8080/?pb_source=api&pb_api_base=http://localhost:8000`
 - Static mode: `http://localhost:8080/?pb_source=static`
 - Auto mode (default): `http://localhost:8080/`
+- Override run/filter in URL (optional): add `pb_n`, `pb_seed`, `pb_gender`, `pb_min_age`, `pb_max_age`
 
 ## What changed for Policy Builder
 
@@ -67,6 +68,30 @@ This writes:
 
 - `data/synth_runs/5000_1/cohort_summary_F_18_65.json`
 - `data/synth_runs/5000_1/patients_F_18_65.json`
+
+## Using a large run (example: `1000000_1`)
+
+If `data/synth_runs/1000000_1/csv/` already exists, skip Synthea and build artifacts directly:
+
+```bash
+cd /Users/cindyz1/ida
+source .venv/bin/activate
+
+# Build cohort summary from cached CSV
+python src/synth/generate_cohort.py --n 1000000 --seed 1 --gender F --min-age 18 --max-age 65 --skip-synthea
+
+# Build patient records (streaming/chunked)
+python src/synth/build_patient_records.py --n 1000000 --seed 1 --gender F --min-age 18 --max-age 65
+
+# Build API precompute cache
+curl -X POST "http://localhost:8000/v1/policy-builder/precompute?n_patients=1000000&seed=1&gender=F&min_age=18&max_age=65"
+```
+
+Then open:
+
+- `http://localhost:8080/?pb_source=api&pb_api_base=http://localhost:8000&pb_n=1000000&pb_seed=1&pb_gender=F&pb_min_age=18&pb_max_age=65`
+
+Note: Synthea may generate fewer than requested (`patients_generated` can be less than `--n`), which is expected.
 
 ## Frontend config for deploys (GitHub Pages)
 
