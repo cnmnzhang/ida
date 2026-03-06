@@ -7,40 +7,190 @@
 //   Called lazily by nav.js on first visit to tab 4.
 // ============================================================
 
-const PB_JSON_PATH     = 'data/synth_runs/5000_1/cohort_summary_F_18_65.json';
-const PB_PATIENTS_PATH = 'data/synth_runs/5000_1/patients_F_18_65.json';
+const PB_DEFAULTS = Object.freeze({
+  nPatients: 5000,
+  seed: 1,
+  gender: 'F',
+  minAge: 18,
+  maxAge: 65,
+  source: 'auto', // auto | api | static
+  flaggedPageSize: 200,
+});
+
+function _pbGetSearchParam(name) {
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+function _pbCssVar(name, fallback) {
+  const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return val || fallback;
+}
+
+function _pbNum(value, fallback) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function _pbGetConfig() {
+  const cfg = (window.IDA_CONFIG && window.IDA_CONFIG.policyBuilder) || {};
+  const globalApiBase = (window.IDA_CONFIG && window.IDA_CONFIG.apiBase) || window.IDA_API_BASE || '';
+
+  const nPatients = _pbNum(cfg.nPatients, PB_DEFAULTS.nPatients);
+  const seed      = _pbNum(cfg.seed, PB_DEFAULTS.seed);
+  const gender    = (cfg.gender || PB_DEFAULTS.gender).toUpperCase();
+  const minAge    = _pbNum(cfg.minAge, PB_DEFAULTS.minAge);
+  const maxAge    = _pbNum(cfg.maxAge, PB_DEFAULTS.maxAge);
+  const staticBase = cfg.staticBasePath || `data/synth_runs/${nPatients}_${seed}`;
+  const cohortPath = cfg.cohortPath || `${staticBase}/cohort_summary_${gender}_${minAge}_${maxAge}.json`;
+  const patientsPath = cfg.patientsPath || `${staticBase}/patients_${gender}_${minAge}_${maxAge}.json`;
+
+  const apiFromQuery = _pbGetSearchParam('pb_api_base') || '';
+  const apiBaseRaw = (apiFromQuery || cfg.apiBase || globalApiBase || '').trim();
+  const apiBase = apiBaseRaw ? apiBaseRaw.replace(/\/+$/, '') : '';
+
+  const sourceFromQuery = (_pbGetSearchParam('pb_source') || '').toLowerCase();
+  const sourceRaw = (sourceFromQuery || cfg.source || PB_DEFAULTS.source).toLowerCase();
+  const source = ['auto', 'api', 'static'].includes(sourceRaw) ? sourceRaw : PB_DEFAULTS.source;
+  const flaggedPageSize = Math.max(1, _pbNum(cfg.flaggedPageSize, PB_DEFAULTS.flaggedPageSize));
+
+  return {
+    nPatients,
+    seed,
+    gender,
+    minAge,
+    maxAge,
+    source,
+    apiBase,
+    cohortPath,
+    patientsPath,
+    flaggedPageSize,
+  };
+}
+
+const PB_CFG = _pbGetConfig();
 
 let _pbCohort      = null;   // cohort summary JSON
 let _pbPatients    = null;   // array of per-patient records
+let _pbMode        = 'local'; // local | api
 let _pbInitialized = false;  // lazy-init guard
 let _pbChart       = null;   // Chart.js instance for investigation panel
+let _pbReqSeq      = 0;      // avoids stale async policy responses
+let _pbPatientReqSeq = 0;    // avoids stale async patient-detail responses
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
-function initPolicyBuilder() {
+function _pbApiParams(extra = {}) {
+  return new URLSearchParams({
+    n_patients: String(PB_CFG.nPatients),
+    seed: String(PB_CFG.seed),
+    gender: PB_CFG.gender,
+    min_age: String(PB_CFG.minAge),
+    max_age: String(PB_CFG.maxAge),
+    ...extra,
+  });
+}
+
+function _pbApiUrl(path, extra = {}) {
+  return `${PB_CFG.apiBase}${path}?${_pbApiParams(extra).toString()}`;
+}
+
+async function _pbFetchJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status} loading ${url}`);
+  return r.json();
+}
+
+async function _pbLoadFromStatic() {
+  const [cohort, patients] = await Promise.all([
+    _pbFetchJson(PB_CFG.cohortPath),
+    _pbFetchJson(PB_CFG.patientsPath),
+  ]);
+  if (!cohort || !Array.isArray(patients)) {
+    throw new Error('Invalid static cohort payload.');
+  }
+  return { mode: 'local', cohort, patients };
+}
+
+async function _pbLoadFromApiPrecomputed() {
+  if (!PB_CFG.apiBase) {
+    throw new Error('No API base URL configured. Set window.IDA_CONFIG.apiBase or window.IDA_CONFIG.policyBuilder.apiBase.');
+  }
+  const [summaryPayload, heatmapPayload] = await Promise.all([
+    _pbFetchJson(_pbApiUrl('/v1/policy-builder/summary')),
+    _pbFetchJson(_pbApiUrl('/v1/policy-builder/heatmap')),
+  ]);
+  if (!summaryPayload || !summaryPayload.cohort || !heatmapPayload || !Array.isArray(heatmapPayload.cells)) {
+    throw new Error('Invalid precomputed API payload.');
+  }
+  return { mode: 'api', cohort: summaryPayload.cohort, heatmap: heatmapPayload };
+}
+
+async function _pbLoadFromApiLegacy() {
+  if (!PB_CFG.apiBase) {
+    throw new Error('No API base URL configured. Set window.IDA_CONFIG.apiBase or window.IDA_CONFIG.policyBuilder.apiBase.');
+  }
+  const payload = await _pbFetchJson(_pbApiUrl('/v1/policy-builder/cohort'));
+  if (!payload || typeof payload !== 'object' || !payload.cohort || !Array.isArray(payload.patients)) {
+    throw new Error('Invalid legacy API cohort payload.');
+  }
+  return { mode: 'local', cohort: payload.cohort, patients: payload.patients };
+}
+
+async function _pbLoadFromApi() {
+  try {
+    return await _pbLoadFromApiPrecomputed();
+  } catch (err) {
+    console.warn('Precomputed API load failed; trying legacy cohort endpoint.', err);
+    return _pbLoadFromApiLegacy();
+  }
+}
+
+async function _pbLoadData() {
+  if (PB_CFG.source === 'static') return _pbLoadFromStatic();
+  if (PB_CFG.source === 'api') return _pbLoadFromApi();
+
+  const errors = [];
+  if (PB_CFG.apiBase) {
+    try {
+      return await _pbLoadFromApi();
+    } catch (err) {
+      errors.push(`API: ${err.message}`);
+      console.warn('Policy Builder API load failed; falling back to static files.', err);
+    }
+  }
+  try {
+    return await _pbLoadFromStatic();
+  } catch (err) {
+    errors.push(`Static: ${err.message}`);
+    throw new Error(errors.join(' | '));
+  }
+}
+
+async function initPolicyBuilder() {
   if (_pbInitialized) return;
   _pbInitialized = true;
 
-  Promise.all([
-    fetch(PB_JSON_PATH).then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status} loading ${PB_JSON_PATH}`);
-      return r.json();
-    }),
-    fetch(PB_PATIENTS_PATH).then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status} loading ${PB_PATIENTS_PATH}`);
-      return r.json();
-    }),
-  ]).then(([cohort, patients]) => {
-    _pbCohort   = cohort;
-    _pbPatients = patients;
+  _pbLoadData().then((payload) => {
+    _pbCohort = payload.cohort;
+    _pbMode = payload.mode;
+    _pbPatients = payload.mode === 'local' ? payload.patients : null;
+
+    const builderSub = document.querySelector('.pb-builder .card-sub');
+    if (builderSub) {
+      if (_pbMode === 'local') {
+        builderSub.textContent = `Patient-level mode · ${_pbPatients.length.toLocaleString()} records loaded`;
+      } else {
+        builderSub.textContent = `API mode · ${(_pbCohort.cohort_size || 0).toLocaleString()} indexed records (paginated)`;
+      }
+    }
 
     document.getElementById('pb-loading').style.display = 'none';
     document.getElementById('pb-content').style.display = '';
 
-    _pbRenderContext(cohort);
-    _pbRenderSignals(cohort);
-    _pbRenderDisclaimers(cohort);
-    _pbRenderFerritinHeatmap(patients);
+    _pbRenderContext(_pbCohort);
+    _pbRenderSignals(_pbCohort);
+    _pbRenderDisclaimers(_pbCohort);
+    _pbRenderFerritinHeatmap(_pbMode === 'local' ? _pbPatients : payload.heatmap);
     _pbWireListeners();
     _pbSyncExclusionState();
     _pbSyncSetpointSlider();
@@ -50,7 +200,8 @@ function initPolicyBuilder() {
     document.getElementById('pb-error').style.display   = '';
     document.getElementById('pb-error-msg').textContent =
       `Could not load cohort data: ${err.message}. ` +
-      `Ensure data files exist and the page is served via HTTP (not file://).`;
+      `For GitHub Pages, point the builder to a backend API (window.IDA_CONFIG.apiBase) ` +
+      `or commit static files at ${PB_CFG.cohortPath} and ${PB_CFG.patientsPath}.`;
   });
 }
 
@@ -105,15 +256,12 @@ function _pbRenderSignals(d) {
   const n   = d.cohort_size || 1;
   const lab = d.lab_anemia  || {};
   const dx  = d.diagnoses   || {};
-  const gap = d.diagnostic_gap || {};
   const pct = (c) => n > 0 ? `${((c / n) * 100).toFixed(1)}% of cohort` : '—';
 
   document.getElementById('pb-t-lab-val').textContent   = (lab.lab_anemia_count      || 0).toLocaleString();
   document.getElementById('pb-t-lab-pct').textContent   = pct(lab.lab_anemia_count   || 0);
   document.getElementById('pb-t-coded-val').textContent = (dx.anemia_dx_count        || 0).toLocaleString();
   document.getElementById('pb-t-coded-pct').textContent = pct(dx.anemia_dx_count     || 0);
-  document.getElementById('pb-t-gap-val').textContent   = (gap.lab_anemia_without_dx || 0).toLocaleString();
-  document.getElementById('pb-t-gap-pct').textContent   = pct(gap.lab_anemia_without_dx || 0);
 }
 
 function _pbRenderDisclaimers(d) {
@@ -178,6 +326,10 @@ function _pbWireListeners() {
       _pbClearPatientDetail();
       return;
     }
+    if (_pbMode === 'api') {
+      _pbFetchPatientDetail(id);
+      return;
+    }
     const patient = _pbPatients.find(p => p.id === id);
     if (patient) _pbRenderPatientDetail(patient);
   });
@@ -221,6 +373,74 @@ function _pbSyncSetpointSlider() {
     trigger === 'setpoint' ? '' : 'none';
 }
 
+function _pbGetPolicyState() {
+  return {
+    trigger: document.getElementById('pb-trigger').value,
+    excludeCoded: document.getElementById('pb-excl-coded').checked,
+    requireMinHb: document.getElementById('pb-excl-hb-min').checked,
+    threshold: parseFloat(document.getElementById('pb-setpoint-thresh').value),
+  };
+}
+
+function _pbSignalText(trigger, threshold, excludeCoded) {
+  if (trigger === 'lab' && !excludeCoded) {
+    return {
+      subtitle: 'Lab-defined anemia · WHO criterion',
+      signalDesc: 'Most-recent Hb below WHO threshold (female: <12.0 g/dL).',
+    };
+  }
+  if (trigger === 'lab' && excludeCoded) {
+    return {
+      subtitle: 'Diagnostic gap · lab anemia without coded anemia',
+      signalDesc: 'Lab-defined anemia (WHO) with no coded anemia diagnosis on record.',
+    };
+  }
+  if (trigger === 'coded') {
+    return {
+      subtitle: 'Coded anemia',
+      signalDesc: 'Anemia diagnosis code on record (SNOMED 271737000 or equivalent).',
+    };
+  }
+  if (trigger === 'gap') {
+    return {
+      subtitle: 'Diagnostic gap only',
+      signalDesc: 'Lab-defined anemia (WHO) with no coded anemia diagnosis on record.',
+    };
+  }
+  return {
+    subtitle: `Drop from Bayesian setpoint >= ${threshold.toFixed(1)} g/dL`,
+    signalDesc: `Latest Hb is >= ${threshold.toFixed(1)} g/dL below the patient's Bayesian adaptive setpoint ` +
+      '(conjugate Gaussian model, personalized per patient).',
+  };
+}
+
+function _pbRenderOutput(state, flaggedN, flaggedPatients) {
+  const d = _pbCohort;
+  const cohortSize = d.cohort_size || 1;
+  const flaggedPct = `${((flaggedN / cohortSize) * 100).toFixed(1)}%`;
+
+  const gapCount = (d.diagnostic_gap || {}).lab_anemia_without_dx || 0;
+  const gapPct = `${((gapCount / cohortSize) * 100).toFixed(1)}%`;
+  const { subtitle, signalDesc } = _pbSignalText(state.trigger, state.threshold, state.excludeCoded);
+
+  document.getElementById('pb-out-subtitle').textContent = subtitle;
+  document.getElementById('pb-out-count').textContent = flaggedN.toLocaleString();
+  document.getElementById('pb-out-pct').textContent =
+    `${flaggedPct} of cohort (n = ${cohortSize.toLocaleString()})`;
+  document.getElementById('pb-out-signal').textContent = signalDesc;
+
+  const isGapPolicy = (state.trigger === 'gap') || (state.trigger === 'lab' && state.excludeCoded);
+  const gapNote = isGapPolicy
+    ? 'This policy directly targets the diagnostic gap.'
+    : 'This policy does not specifically target the diagnostic gap.';
+  document.getElementById('pb-gap-context-val').innerHTML =
+    `<strong style="color:var(--accent-pink);">${gapCount.toLocaleString()}</strong> patients ` +
+    `(${gapPct} of cohort) have lab-defined anemia without a coded anemia diagnosis. ` +
+    `<span style="color:var(--text-muted);">${gapNote}</span>`;
+
+  _pbUpdateInvestigationPanel(flaggedPatients);
+}
+
 // ── Patient-level flagging ────────────────────────────────────────────────────
 
 function _pbGetFlaggedPatients() {
@@ -232,7 +452,7 @@ function _pbGetFlaggedPatients() {
   let flagged = _pbPatients;
 
   if (requireMinHb) {
-    flagged = flagged.filter(p => p.hb_history.length >= 2);
+    flagged = flagged.filter(p => ((p.hb_history && p.hb_history.length) || p.hb_count || 0) >= 3);
   }
 
   if (trigger === 'lab') {
@@ -253,70 +473,62 @@ function _pbGetFlaggedPatients() {
 // ── Output computation ────────────────────────────────────────────────────────
 
 function _pbUpdateOutput() {
-  if (!_pbCohort || !_pbPatients) return;
-
-  const d          = _pbCohort;
-  const cohortSize = d.cohort_size || 1;
-  const trigger    = document.getElementById('pb-trigger').value;
-  const threshold  = parseFloat(document.getElementById('pb-setpoint-thresh').value);
-  const excludeCoded = document.getElementById('pb-excl-coded').checked;
-
-  const flagged    = _pbGetFlaggedPatients();
-  const flaggedN   = flagged.length;
-  const flaggedPct = `${((flaggedN / cohortSize) * 100).toFixed(1)}%`;
-
-  const gapCount = (d.diagnostic_gap || {}).lab_anemia_without_dx || 0;
-  const gapPct   = `${((gapCount / cohortSize) * 100).toFixed(1)}%`;
-
-  // ── Signal description ───────────────────────────────────────────────────
-  let subtitle, signalDesc;
-
-  if (trigger === 'lab' && !excludeCoded) {
-    subtitle   = 'Lab-defined anemia · WHO criterion';
-    signalDesc = 'Most-recent Hb below WHO threshold (female: <12.0 g/dL).';
-  } else if (trigger === 'lab' && excludeCoded) {
-    subtitle   = 'Diagnostic gap · lab anemia without coded anemia';
-    signalDesc = 'Lab-defined anemia (WHO) with no coded anemia diagnosis on record.';
-  } else if (trigger === 'coded') {
-    subtitle   = 'Coded anemia';
-    signalDesc = 'Anemia diagnosis code on record (SNOMED 271737000 or equivalent).';
-  } else if (trigger === 'gap') {
-    subtitle   = 'Diagnostic gap only';
-    signalDesc = 'Lab-defined anemia (WHO) with no coded anemia diagnosis on record.';
-  } else {
-    subtitle   = `Drop from Bayesian setpoint \u2265 ${threshold.toFixed(1)} g/dL`;
-    signalDesc = `Latest Hb is \u2265 ${threshold.toFixed(1)} g/dL below the patient\u2019s Bayesian adaptive setpoint ` +
-                 `(conjugate Gaussian model, personalized per patient). Requires \u2265 2 Hb measurements.`;
+  if (!_pbCohort) return;
+  if (_pbMode === 'api') {
+    _pbUpdateOutputApi();
+    return;
   }
+  if (!_pbPatients) return;
 
-  // ── Ferritin count ───────────────────────────────────────────────────────
-  const withFerritin = flagged.filter(p => p.ferritin_tests > 0).length;
-  const ferritinText = flaggedN === 0
-    ? 'No flagged patients'
-    : `${withFerritin.toLocaleString()} of ${flaggedN.toLocaleString()} flagged patients ` +
-      `have \u22651 ferritin test on record (${((withFerritin / flaggedN) * 100).toFixed(0)}%)`;
+  const state = _pbGetPolicyState();
+  const flagged = _pbGetFlaggedPatients();
+  _pbRenderOutput(state, flagged.length, flagged);
+}
 
-  // ── Write to DOM ─────────────────────────────────────────────────────────
-  document.getElementById('pb-out-subtitle').textContent = subtitle;
-  document.getElementById('pb-out-count').textContent    = flaggedN.toLocaleString();
-  document.getElementById('pb-out-pct').textContent      =
-    `${flaggedPct} of cohort (n\u202f=\u202f${cohortSize.toLocaleString()})`;
-  document.getElementById('pb-out-signal').textContent   = signalDesc;
-  document.getElementById('pb-out-ferritin').textContent = ferritinText;
+async function _pbUpdateOutputApi() {
+  const reqSeq = ++_pbReqSeq;
+  const state = _pbGetPolicyState();
 
-  // ── Diagnostic gap panel ─────────────────────────────────────────────────
-  const isGapPolicy = (trigger === 'gap') || (trigger === 'lab' && excludeCoded);
-  const gapNote = isGapPolicy
-    ? 'This policy directly targets the diagnostic gap.'
-    : 'This policy does not specifically target the diagnostic gap.';
+  try {
+    const payload = await _pbFetchJson(_pbApiUrl('/v1/policy-builder/flagged', {
+      trigger: state.trigger,
+      exclude_coded: String(state.excludeCoded),
+      require_min_hb: String(state.requireMinHb),
+      threshold: state.threshold.toFixed(1),
+      limit: String(PB_CFG.flaggedPageSize),
+      offset: '0',
+    }));
+    if (reqSeq !== _pbReqSeq) return;
 
-  document.getElementById('pb-gap-context-val').innerHTML =
-    `<strong style="color:var(--accent-pink);">${gapCount.toLocaleString()}</strong> patients ` +
-    `(${gapPct} of cohort) have lab-defined anemia without a coded anemia diagnosis. ` +
-    `<span style="color:var(--text-muted);">${gapNote}</span>`;
+    const summary = payload.summary || {};
+    const flaggedPatients = Array.isArray(payload.patients) ? payload.patients : [];
+    _pbRenderOutput(
+      state,
+      summary.flagged_count || 0,
+      flaggedPatients,
+    );
+  } catch (err) {
+    if (reqSeq !== _pbReqSeq) return;
+    document.getElementById('pb-out-subtitle').textContent = 'Unable to load policy output';
+    document.getElementById('pb-out-count').textContent = '—';
+    document.getElementById('pb-out-pct').textContent = '';
+    document.getElementById('pb-out-signal').textContent = err.message;
+    _pbUpdateInvestigationPanel([]);
+  }
+}
 
-  // ── Investigation panel ──────────────────────────────────────────────────
-  _pbUpdateInvestigationPanel(flagged);
+async function _pbFetchPatientDetail(patientId) {
+  const reqSeq = ++_pbPatientReqSeq;
+  try {
+    const payload = await _pbFetchJson(_pbApiUrl(`/v1/policy-builder/patient/${encodeURIComponent(patientId)}`));
+    if (reqSeq !== _pbPatientReqSeq) return;
+    const patient = payload && payload.patient ? payload.patient : payload;
+    _pbRenderPatientDetail(patient);
+  } catch (err) {
+    if (reqSeq !== _pbPatientReqSeq) return;
+    _pbClearPatientDetail();
+    document.getElementById('pb-pt-empty').textContent = `Could not load patient detail: ${err.message}`;
+  }
 }
 
 // ── Investigation panel ───────────────────────────────────────────────────────
@@ -329,18 +541,19 @@ function _pbUpdateInvestigationPanel(flaggedPatients) {
   flaggedPatients.forEach(p => {
     const opt      = document.createElement('option');
     opt.value      = p.id;
-    const hbLabel   = p.latest_hb !== null ? `Hb ${p.latest_hb.toFixed(1)}` : 'no Hb';
-    const dropLabel = p.hb_drop   !== null ? ` · ↓${p.hb_drop.toFixed(2)} g/dL` : '';
-    const zLabel    = p.hb_drop_z !== null ? ` (${p.hb_drop_z.toFixed(1)}σ)` : '';
-    opt.textContent = `${p.id.slice(0, 8)}… · age ${p.age} · ${hbLabel}${dropLabel}${zLabel}`;
+    opt.textContent = p.id;
     sel.appendChild(opt);
   });
 
   // Restore prior selection if still in the flagged list
   if (prevId && flaggedPatients.some(p => p.id === prevId)) {
     sel.value = prevId;
-    const patient = flaggedPatients.find(p => p.id === prevId);
-    if (patient) _pbRenderPatientDetail(patient);
+    if (_pbMode === 'api') {
+      _pbFetchPatientDetail(prevId);
+    } else {
+      const patient = flaggedPatients.find(p => p.id === prevId);
+      if (patient) _pbRenderPatientDetail(patient);
+    }
   } else {
     sel.value = '';
     _pbClearPatientDetail();
@@ -348,6 +561,7 @@ function _pbUpdateInvestigationPanel(flaggedPatients) {
 }
 
 function _pbClearPatientDetail() {
+  document.getElementById('pb-pt-empty').textContent = 'No patient selected.';
   document.getElementById('pb-pt-empty').style.display  = '';
   document.getElementById('pb-pt-detail').style.display = 'none';
   if (_pbChart) { _pbChart.destroy(); _pbChart = null; }
@@ -373,6 +587,7 @@ function _pbRenderPatientDetail(patient) {
     `<span>WHO threshold ${patient.who_threshold} g/dL</span>` +
     `<span>${spText}</span>` +
     `<span>Drop <strong>${dropText}</strong> · ${zText}</span>` +
+    `<span>${patient.coded_anemia ? 'Coded anemia on record' : 'No coded anemia on record'}</span>` +
     `<span>${patient.ferritin_tests} ferritin test${patient.ferritin_tests !== 1 ? 's' : ''}</span>`;
 
   // ── Chart ─────────────────────────────────────────────────────────────────
@@ -390,6 +605,8 @@ function _pbRenderPatientChart(patient) {
   const labels  = hb.map(h => h.date);
   const values  = hb.map(h => h.value);
   const thresh  = patient.who_threshold;
+  const textBody = _pbCssVar('--text-body', '#d0d8e3');
+  const textMuted = _pbCssVar('--text-muted', '#8fa3bf');
 
   const pointColors = values.map(v => v < thresh ? '#e86464' : '#6ea8d8');
 
@@ -468,7 +685,7 @@ function _pbRenderPatientChart(patient) {
       plugins: {
         legend: {
           labels: {
-            color: 'var(--text-body)',
+            color: textBody,
             font: { family: 'Karla', size: 12 },
             boxWidth: 20,
             filter: (item) => !item.text.startsWith('_'),
@@ -476,6 +693,11 @@ function _pbRenderPatientChart(patient) {
         },
         tooltip: {
           filter: (item) => !item.dataset.label.startsWith('_'),
+          backgroundColor: 'rgba(8,12,20,0.95)',
+          borderColor: 'rgba(255,255,255,0.14)',
+          borderWidth: 1,
+          titleColor: textBody,
+          bodyColor: textBody,
           callbacks: {
             label: (ctx) =>
               `${ctx.dataset.label}: ${typeof ctx.parsed.y === 'number' ? ctx.parsed.y.toFixed(2) : ctx.parsed.y}`,
@@ -484,13 +706,13 @@ function _pbRenderPatientChart(patient) {
       },
       scales: {
         x: {
-          ticks: { color: 'var(--text-muted)', maxRotation: 40, font: { size: 11 } },
+          ticks: { color: textMuted, maxRotation: 40, font: { size: 11 } },
           grid:  { color: 'rgba(255,255,255,0.05)' },
         },
         y: {
-          ticks: { color: 'var(--text-muted)', font: { size: 11 } },
+          ticks: { color: textMuted, font: { size: 11 } },
           grid:  { color: 'rgba(255,255,255,0.06)' },
-          title: { display: true, text: 'g/dL', color: 'var(--text-muted)', font: { size: 11 } },
+          title: { display: true, text: 'g/dL', color: textMuted, font: { size: 11 } },
         },
       },
     },
@@ -531,42 +753,53 @@ function _pbRenderConditionsTable(patient) {
 
 // ── Ferritin heatmap ──────────────────────────────────────────────────────────
 
-function _pbRenderFerritinHeatmap(patients) {
+function _pbRenderFerritinHeatmap(data) {
   const wrap = document.getElementById('pb-heatmap-wrap');
   if (!wrap) return;
 
-  // Bin definitions
-  const hbBins   = [
-    { label: '<10',    min: -Infinity, max: 10   },
-    { label: '10–11',  min: 10,        max: 11   },
-    { label: '11–12',  min: 11,        max: 12   },
-    { label: '12–13',  min: 12,        max: 13   },
-    { label: '≥13',    min: 13,        max: Infinity },
+  const hbBins = [
+    { label: '<10', min: -Infinity, max: 10 },
+    { label: '10-11', min: 10, max: 11 },
+    { label: '11-12', min: 11, max: 12 },
+    { label: '12-13', min: 12, max: 13 },
+    { label: '>=13', min: 13, max: Infinity },
   ];
   const dropBins = [
-    { label: '≥2.0',   min: 2.0,       max: Infinity },
-    { label: '1.5–2',  min: 1.5,       max: 2.0  },
-    { label: '1.0–1.5',min: 1.0,       max: 1.5  },
-    { label: '0.5–1',  min: 0.5,       max: 1.0  },
-    { label: '<0.5',   min: -Infinity, max: 0.5  },
+    { label: '>=2.0', min: 2.0, max: Infinity },
+    { label: '1.5-2.0', min: 1.5, max: 2.0 },
+    { label: '1.0-1.5', min: 1.0, max: 1.5 },
+    { label: '0.5-1.0', min: 0.5, max: 1.0 },
+    { label: '<0.5', min: -Infinity, max: 0.5 },
   ];
+  let minCell = 5;
+  let counts = dropBins.map(() => hbBins.map(() => ({ n: 0, fer: 0 })));
 
-  const MIN_CELL = 5;  // suppress cells with fewer patients
+  if (Array.isArray(data)) {
+    for (const p of data) {
+      if (p.latest_hb == null) continue;
+      const drop = p.hb_drop ?? 0;
+      const hb = p.latest_hb;
+      const hasFer = (p.ferritin_tests || 0) > 0;
 
-  // Build cell counts
-  const counts = dropBins.map(() => hbBins.map(() => ({ n: 0, fer: 0 })));
-  for (const p of patients) {
-    if (p.latest_hb == null) continue;
-    const drop = p.hb_drop ?? 0;
-    const hb   = p.latest_hb;
-    const hasFer = (p.ferritin_tests || 0) > 0;
+      const xi = hbBins.findIndex(b => hb >= b.min && hb < b.max);
+      const yi = dropBins.findIndex(b => drop >= b.min && drop < b.max);
+      if (xi < 0 || yi < 0) continue;
 
-    const xi = hbBins.findIndex(b => hb >= b.min && hb < b.max);
-    const yi = dropBins.findIndex(b => drop >= b.min && drop < b.max);
-    if (xi < 0 || yi < 0) continue;
+      counts[yi][xi].n++;
+      if (hasFer) counts[yi][xi].fer++;
+    }
+  } else if (data && Array.isArray(data.cells)) {
+    minCell = Number.isFinite(data.min_cell) ? data.min_cell : minCell;
 
-    counts[yi][xi].n++;
-    if (hasFer) counts[yi][xi].fer++;
+    const hbLabels = Array.isArray(data.hb_bins) ? data.hb_bins.map(b => b.label) : hbBins.map(b => b.label);
+    const dropLabels = Array.isArray(data.drop_bins) ? data.drop_bins.map(b => b.label) : dropBins.map(b => b.label);
+    hbBins.splice(0, hbBins.length, ...hbLabels.map(label => ({ label })));
+    dropBins.splice(0, dropBins.length, ...dropLabels.map(label => ({ label })));
+
+    counts = data.cells.map(row => row.map(cell => ({
+      n: (cell && Number.isFinite(cell.n)) ? cell.n : 0,
+      fer: (cell && Number.isFinite(cell.fer)) ? cell.fer : 0,
+    })));
   }
 
   // Colour scale: 0 = transparent, 1 = accent-blue full
@@ -588,20 +821,16 @@ function _pbRenderFerritinHeatmap(patients) {
     return palette[5];
   }
 
-  // Render as HTML table (no canvas dep needed)
-  const cellW = 90;
-  const cellH = 44;
-
   let rows = '';
   dropBins.forEach((db, yi) => {
     let cells = `<td class="pb-hm-rlabel">${db.label}</td>`;
     hbBins.forEach((hb, xi) => {
-      const cell = counts[yi][xi];
-      const suppressed = cell.n < MIN_CELL;
-      const rate = suppressed ? null : cell.fer / cell.n;
+      const cell = (counts[yi] && counts[yi][xi]) ? counts[yi][xi] : { n: 0, fer: 0 };
+      const suppressed = cell.n < minCell;
+      const rate = suppressed || cell.n === 0 ? null : cell.fer / cell.n;
       const bg   = suppressed ? 'rgba(255,255,255,0.03)' : rateToColor(rate);
       const txt  = suppressed
-        ? `<span class="pb-hm-suppressed">n&lt;${MIN_CELL}</span>`
+        ? `<span class="pb-hm-suppressed">n&lt;${minCell}</span>`
         : `<span class="pb-hm-rate">${(rate * 100).toFixed(0)}%</span>
            <span class="pb-hm-n">${cell.fer}/${cell.n}</span>`;
       cells += `<td class="pb-hm-cell" style="background:${bg};">${txt}</td>`;

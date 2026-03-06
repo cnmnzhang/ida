@@ -49,15 +49,6 @@
           Codes may persist after Hb normalizes.
         </div>
       </div>
-      <div class="pb-tile pb-tile--gap">
-        <div class="pb-tile-val" id="pb-t-gap-val">—</div>
-        <div class="pb-tile-pct" id="pb-t-gap-pct"></div>
-        <div class="pb-tile-label">Diagnostic gap</div>
-        <div class="pb-tile-desc">
-          Lab-defined anemia <em>without</em> any coded anemia diagnosis — the core
-          underdiagnosis signal targeted by this tool.
-        </div>
-      </div>
     </div>
 
     <!-- 3 + 4. Builder (left) + Output (right) -->
@@ -66,7 +57,7 @@
       <!-- ── Policy Builder ──────────────────────────────────────── -->
       <section class="card pb-builder" aria-label="Policy configuration">
         <div class="card-title">Policy Builder</div>
-        <div class="card-sub">Patient-level mode &middot; 1,674 records loaded</div>
+        <div class="card-sub">Loading cohort records...</div>
 
         <!-- A. Trigger -->
         <div class="pb-step">
@@ -93,7 +84,7 @@
               Flags patients whose latest Hb is &ge; threshold below their
               <strong>Bayesian adaptive setpoint</strong> &mdash; a personalized running estimate
               that updates with each reading (conjugate Gaussian model).
-              Requires &ge; 2 Hb measurements.
+              Requires &ge; 3 Hb measurements when the minimum-Hb exclusion is enabled.
             </div>
           </div>
         </div>
@@ -113,7 +104,7 @@
           <div class="pb-checkbox-row">
             <label>
               <input type="checkbox" id="pb-excl-hb-min">
-              Require &ge; 2 Hb measurements
+              Require &ge; 3 Hb measurements
             </label>
           </div>
 
@@ -145,10 +136,6 @@
           <div class="pb-out-row">
             <div class="pb-out-row-label">Signal</div>
             <div id="pb-out-signal">&mdash;</div>
-          </div>
-          <div class="pb-out-row">
-            <div class="pb-out-row-label">Ferritin tests</div>
-            <div id="pb-out-ferritin">&mdash;</div>
           </div>
         </div>
 
@@ -183,21 +170,7 @@
       </div>
     </section>
 
-    <!-- 6. Ferritin heatmap -->
-    <section class="card pb-ferritin-heatmap" aria-label="Ferritin test rate heatmap" style="margin-bottom:24px;">
-      <div class="card-title">Ferritin Testing Rate by HB &times; Setpoint Drop</div>
-      <div class="card-sub">P(ferritin ordered) &mdash; fraction of patients in each cell with &ge;1 ferritin test recorded</div>
-      <div id="pb-heatmap-wrap" class="pb-heatmap-wrap"></div>
-      <p class="card-note" style="margin-top:14px;">
-        <strong>Synthetic data note.</strong> Synthea floors ferritin at 30.1&thinsp;&micro;g/L in all patients, so
-        P(ferritin &lt; 30) = 0 across every cell. The metric shown here — whether a ferritin test was
-        <em>ordered at all</em> — reflects simulated clinical suspicion patterns and serves as a placeholder
-        for the true iron-deficiency confirmation rate that would appear in real EHR data.
-        Only 36 of 1,674 patients have any ferritin test recorded; cells with &lt;5 patients are suppressed.
-      </p>
-    </section>
-
-    <!-- 7. Disclaimers / sanity checks -->
+    <!-- 6. Disclaimers / sanity checks -->
     <section class="card pb-disclaimers" aria-label="Data quality notes" style="margin-bottom:8px;">
       <div class="card-title">Data Quality Notes</div>
       <ul id="pb-disclaimer-list" class="pb-disclaimer-list"></ul>

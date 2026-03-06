@@ -479,10 +479,10 @@ nav {
   .pb-context-note { margin-left: 0; padding-left: 0; white-space: normal; }
 }
 
-/* Signal overview tiles — 3 columns, colored like driver cards */
+/* Signal overview tiles — 2 columns */
 .pb-tiles {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
 }
 
@@ -584,6 +584,11 @@ nav {
 }
 
 .pb-select:focus { outline: none; border-color: var(--accent-amber); }
+
+.pb-select option {
+  color: var(--text-primary);
+  background: #0b1220;
+}
 
 .pb-checkbox-row {
   margin-bottom: 10px;

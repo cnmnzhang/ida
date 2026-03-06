@@ -5,54 +5,6 @@ function initPage3Charts() {
   if (_chartsInitialized[3]) return;
   _chartsInitialized[3] = true;
 
-  // P3-MAIN: Women's US anemia trend with stagnation band
-  const p3Main = new Chart(document.getElementById('p3-main'), {
-    type: 'line',
-    data: {
-      labels: [1999,2001,2003,2005,2007,2009,2011,2013,2015,2017,2019,2021],
-      datasets: [
-        { label: 'Women 15–49 (anemia %)', data: [15.2,14.8,14.5,14.2,13.9,13.8,13.9,14.0,14.1,14.3,14.4,14.6], borderColor:'#f472b6', backgroundColor: ctx => { const g = ctx.chart.ctx.createLinearGradient(0,0,0,260); g.addColorStop(0,'rgba(244,114,182,0.18)'); g.addColorStop(1,'rgba(244,114,182,0.01)'); return g; }, borderWidth:2.5, pointRadius:4, pointBorderColor:'#080c14', pointBorderWidth:2, tension:0.35, fill:true },
-        { label: 'Males 15–49 (anemia %)', data: [4.2,4.0,3.9,3.8,3.7,3.6,3.5,3.5,3.5,3.6,3.6,3.6], borderColor:'#38bdf8', backgroundColor:'transparent', borderWidth:2, pointRadius:3, pointBorderColor:'#080c14', pointBorderWidth:1, tension:0.35, fill:false, borderDash:[5,3] }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { position: 'top', labels: { color: '#8fa3bf', boxWidth: 12, font: { size: 11 } } },
-        tooltip: { ...sharedTooltip, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` } }
-      },
-      scales: {
-        x: { grid: { color: '#111c2e' }, ticks: { color: '#4a6080', font: { size: 11 } } },
-        y: { min: 0, max: 20, grid: { color: '#111c2e' }, ticks: { color: '#4a6080', callback: v => v + '%', font: { size: 11 } }, title: { display: true, text: 'Anemia prevalence (%)', color: '#4a6080', font: { size: 11 } } }
-      }
-    }
-  });
-
-  // Draw stagnation zone shading after render
-  setTimeout(() => {
-    const ch = p3Main;
-    const ctx2 = ch.ctx;
-    const xScale = ch.scales.x;
-    const yScale = ch.scales.y;
-    const x2009 = xScale.getPixelForValue(2009);
-    const x2021 = xScale.getPixelForValue(2021);
-    const y0 = yScale.getPixelForValue(20);
-    const y1 = yScale.getPixelForValue(0);
-    ctx2.save();
-    ctx2.fillStyle = 'rgba(245,158,11,0.04)';
-    ctx2.fillRect(x2009, y0, x2021 - x2009, y1 - y0);
-    ctx2.strokeStyle = 'rgba(245,158,11,0.3)';
-    ctx2.lineWidth = 1.5;
-    ctx2.setLineDash([4,3]);
-    ctx2.beginPath(); ctx2.moveTo(x2009, y0); ctx2.lineTo(x2009, y1); ctx2.stroke();
-    ctx2.setLineDash([]);
-    ctx2.fillStyle = 'rgba(245,158,11,0.55)';
-    ctx2.font = '10px DM Mono, monospace';
-    ctx2.fillText('← Stagnation zone', x2009 + 8, y0 + 16);
-    ctx2.restore();
-  }, 200);
-
   // P3-MEAT: Red meat vs poultry (line)
   new Chart(document.getElementById('p3-meat'), {
     type: 'line',
