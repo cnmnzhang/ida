@@ -1,0 +1,107 @@
+{
+  "location": "Washington",
+  "seed": 1,
+  "patients_requested": 5000,
+  "patients_generated": 5654,
+  "cohort_size": 1674,
+  "cohort_filter": {
+    "gender": "F",
+    "min_age": 18,
+    "max_age": 65
+  },
+  "generated_at": "2026-03-05T19:40:57.826000+00:00",
+  "labs": {
+    "hb_observations": 4072,
+    "patients_with_hb": 1674,
+    "hb_mean": 14.229,
+    "hb_std": 1.898,
+    "hb_histogram": [
+      {
+        "bin_start": 6.8,
+        "bin_end": 7.89,
+        "count": 8
+      },
+      {
+        "bin_start": 7.89,
+        "bin_end": 8.98,
+        "count": 12
+      },
+      {
+        "bin_start": 8.98,
+        "bin_end": 10.07,
+        "count": 26
+      },
+      {
+        "bin_start": 10.07,
+        "bin_end": 11.16,
+        "count": 65
+      },
+      {
+        "bin_start": 11.16,
+        "bin_end": 12.25,
+        "count": 558
+      },
+      {
+        "bin_start": 12.25,
+        "bin_end": 13.34,
+        "count": 796
+      },
+      {
+        "bin_start": 13.34,
+        "bin_end": 14.43,
+        "count": 747
+      },
+      {
+        "bin_start": 14.43,
+        "bin_end": 15.52,
+        "count": 682
+      },
+      {
+        "bin_start": 15.52,
+        "bin_end": 16.61,
+        "count": 651
+      },
+      {
+        "bin_start": 16.61,
+        "bin_end": 17.7,
+        "count": 527
+      }
+    ],
+    "ferritin_present": true,
+    "ferritin_count": 240,
+    "iron_panel_codes": [
+      {
+        "CODE": "2276-4",
+        "DESCRIPTION": "Ferritin [Mass/volume] in Serum or Plasma",
+        "count": 240
+      },
+      {
+        "CODE": "2498-4",
+        "DESCRIPTION": "Iron [Mass/volume] in Serum or Plasma",
+        "count": 23
+      },
+      {
+        "CODE": "2500-7",
+        "DESCRIPTION": "Iron binding capacity [Mass/volume] in Serum or Plasma",
+        "count": 23
+      },
+      {
+        "CODE": "2502-3",
+        "DESCRIPTION": "Iron saturation [Mass Fraction] in Serum or Plasma",
+        "count": 23
+      }
+    ]
+  },
+  "diagnoses": {
+    "anemia_dx_count": 610,
+    "ida_dx_count": 0
+  },
+  "lab_anemia": {
+    "lab_anemia_count": 104,
+    "lab_anemia_prevalence": 0.0621
+  },
+  "diagnostic_gap": {
+    "lab_anemia_without_dx": 1,
+    "gap_rate": 0.0006
+  }
+}
