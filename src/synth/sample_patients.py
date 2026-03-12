@@ -26,6 +26,13 @@ def _stratum(patient: dict) -> tuple:
     )
 
 
+def _richness(patient: dict) -> int:
+    hb = len(patient.get("hb_history") or [])
+    conds = len(patient.get("conditions") or [])
+    ferritin = patient.get("ferritin_tests") or 0
+    return hb + conds + ferritin
+
+
 def _allocate(group_sizes: dict, n: int) -> dict:
     total = sum(group_sizes.values())
     if total <= 0 or n <= 0:
@@ -94,24 +101,23 @@ def sample_patients(patients: list, n: int, seed: int) -> list:
 
     sampled = []
     for k, want in alloc.items():
-        candidates = groups.get(k, [])
+        candidates = sorted(groups.get(k, []), key=_richness, reverse=True)
         if want <= 0 or not candidates:
             continue
-        if want >= len(candidates):
-            sampled.extend(candidates)
-        else:
-            sampled.extend(rng.sample(candidates, want))
+        sampled.extend(candidates[:want])
 
-    # If rounding/constraints undershot, fill from remaining pool.
+    # If rounding/constraints undershot, fill from remaining pool (richest first).
     if len(sampled) < n:
         seen = {p["id"] for p in sampled}
-        remaining = [p for p in patients if p["id"] not in seen]
-        need = min(n - len(sampled), len(remaining))
-        sampled.extend(rng.sample(remaining, need))
+        remaining = sorted(
+            (p for p in patients if p["id"] not in seen),
+            key=_richness, reverse=True,
+        )
+        sampled.extend(remaining[:n - len(sampled)])
 
-    # Cap in rare overshoot case.
+    # Cap in rare overshoot case (richest first).
     if len(sampled) > n:
-        sampled = rng.sample(sampled, n)
+        sampled = sorted(sampled, key=_richness, reverse=True)[:n]
 
     return sampled
 

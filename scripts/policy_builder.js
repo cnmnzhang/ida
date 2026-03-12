@@ -601,8 +601,6 @@ function _pbRenderPatientDetail(patient) {
     : '—';
   document.getElementById('pb-pt-meta').innerHTML =
     `<span>Age ${patient.age}</span>` +
-    `<span>Latest Hb <strong>${patient.latest_hb !== null ? patient.latest_hb.toFixed(2) : '—'}</strong> g/dL</span>` +
-    `<span>WHO threshold ${patient.who_threshold} g/dL</span>` +
     `<span>${spText}</span>` +
     `<span>Drop <strong>${dropText}</strong> · ${zText}</span>` +
     `<span>${patient.coded_anemia ? 'Coded anemia on record' : 'No coded anemia on record'}</span>` +
@@ -628,7 +626,39 @@ function _pbRenderPatientChart(patient) {
 
   const pointColors = values.map(v => v < thresh ? '#e86464' : '#6ea8d8');
 
-  const datasets = [
+  const hbMean = _pbCohort && _pbCohort.labs && _pbCohort.labs.hb_mean != null ? _pbCohort.labs.hb_mean : null;
+  const hbStd  = _pbCohort && _pbCohort.labs && _pbCohort.labs.hb_std  != null ? _pbCohort.labs.hb_std  : null;
+
+  const datasets = [];
+
+  // Population reference range band (mean ± 1.5 SD from cohort)
+  if (hbMean !== null && hbStd !== null) {
+    const upperRef = parseFloat((hbMean + 1.5 * hbStd).toFixed(2));
+    const lowerRef = parseFloat((hbMean - 1.5 * hbStd).toFixed(2));
+    datasets.push({
+      label: `Pop. ref range (${lowerRef}–${upperRef} g/dL)`,
+      data: new Array(labels.length).fill(upperRef),
+      borderColor: 'rgba(74,222,128,0.45)',
+      borderDash: [4, 4],
+      borderWidth: 1.2,
+      pointRadius: 0,
+      fill: '+1',
+      backgroundColor: 'rgba(74,222,128,0.07)',
+      order: 6,
+    });
+    datasets.push({
+      label: '_ref_lower',
+      data: new Array(labels.length).fill(lowerRef),
+      borderColor: 'rgba(74,222,128,0.45)',
+      borderDash: [4, 4],
+      borderWidth: 1.2,
+      pointRadius: 0,
+      fill: false,
+      order: 6,
+    });
+  }
+
+  datasets.push(
     {
       label: 'Hemoglobin (g/dL)',
       data: values,
@@ -651,7 +681,7 @@ function _pbRenderPatientChart(patient) {
       fill: false,
       order: 3,
     },
-  ];
+  );
 
   // Bayesian adaptive setpoint: µ trajectory + ±σ band
   if (spHist.length === hb.length) {

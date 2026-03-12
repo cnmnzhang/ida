@@ -28,16 +28,16 @@
     </div>
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="showPage(1)">
-        <span class="nav-tab-num">1</span>Global Trends
+        <span class="nav-tab-num">1</span>Policy Builder
       </button>
       <button class="nav-tab" onclick="showPage(2)">
-        <span class="nav-tab-num">2</span>US Burden
+        <span class="nav-tab-num">2</span>Global Trends
       </button>
       <button class="nav-tab" onclick="showPage(3)">
-        <span class="nav-tab-num">3</span>Post-2009 Stagnation
+        <span class="nav-tab-num">3</span>US Burden
       </button>
       <button class="nav-tab" onclick="showPage(4)">
-        <span class="nav-tab-num">4</span>Policy Builder
+        <span class="nav-tab-num">4</span>Post-2009 Stagnation
       </button>
     </div>
   </nav>
@@ -58,14 +58,16 @@
   <!-- Runtime config: can be overridden via URL params (pb_n, pb_seed, pb_gender, pb_min_age, pb_max_age, pb_source, pb_api_base, pb_cohort_path, pb_patients_path) -->
   <script>
     window.IDA_CONFIG = {
-      apiBase: '', // e.g. https://your-backend.example.com
+      apiBase: 'http://localhost:8000',
+
       policyBuilder: {
         source: 'auto', // auto | api | static
-        nPatients: 5000,
+        nPatients: 1000000,
         seed: 1,
         gender: 'F',
         minAge: 18,
         maxAge: 65,
+        patientsPath: 'data/synth_runs/1000000_1/patients_F_18_65_sample20.json',
         flaggedPageSize: 200
       }
     };
@@ -79,10 +81,10 @@
   <!-- Load page HTML, then initialize charts + citations -->
   <script>
     Promise.all([
+      fetch('pages/page4.html').then(r => r.text()),
       fetch('pages/page1.html').then(r => r.text()),
       fetch('pages/page2.html').then(r => r.text()),
-      fetch('pages/page3.html').then(r => r.text()),
-      fetch('pages/page4.html').then(r => r.text())
+      fetch('pages/page3.html').then(r => r.text())
     ]).then(([p1, p2, p3, p4]) => {
       document.getElementById('page-1').innerHTML = p1;
       document.getElementById('page-2').innerHTML = p2;
@@ -105,8 +107,8 @@
         .then(() => loadScript('scripts/charts-p2.js'))
         .then(() => loadScript('scripts/charts-p3.js'));
     }).then(() => {
-      // Init only page 1 charts on load; pages 2 & 3 init on first visit
-      initPage1Charts();
+      // Init policy builder on load; research pages init on first visit
+      initPolicyBuilder();
       initCitations();
     });
   </script>

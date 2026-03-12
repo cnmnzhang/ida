@@ -4,7 +4,7 @@
 // Pages are identified by id="page-N", tabs by .nav-tab order.
 // Lazily initializes charts on first visit to each page.
 // ============================================================
-const _chartInitFns = { 1: 'initPage1Charts', 2: 'initPage2Charts', 3: 'initPage3Charts', 4: 'initPolicyBuilder' };
+const _chartInitFns = { 1: 'initPolicyBuilder', 2: 'initPage1Charts', 3: 'initPage2Charts', 4: 'initPage3Charts' };
 
 function showPage(n) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
